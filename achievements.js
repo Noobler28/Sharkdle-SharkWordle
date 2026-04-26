@@ -1,4 +1,8 @@
-// Achievement Definitions 
+const ACHIEVEMENT_STORY_STORAGE_KEY = "sharkdle_story_mode_v2";
+const SECRET_SAVE_KEY = "sharkdle_secret_save_v2";
+let achievementAuthReady = false;
+
+// Achievement Definitions
 const achievementDefinitions = {
     // Special Achievements
     special: [
@@ -17,6 +21,51 @@ const achievementDefinitions = {
             icon: '👑',
             points: 75,
             type: 'special'
+        },
+        {
+            id: 'secret_command_found',
+            name: 'Depths Discovered',
+            description: 'Discover the hidden Shark Rescue Command page',
+            icon: '🦈',
+            points: 180,
+            type: 'special',
+            themeRewardId: 'pearl-reef',
+            themeRewardName: 'Pearl Reef'
+        },
+        {
+            id: 'crate_opened',
+            name: 'First Unboxing',
+            description: 'Open a Cosmetic Crate',
+            icon: '📦',
+            points: 40,
+            type: 'special'
+        },
+        {
+            id: 'secret_prestige_1',
+            name: 'First Renown',
+            description: 'Prestige once in Shark Rescue Command',
+            icon: '👑',
+            points: 100,
+            type: 'special',
+            hiddenUntilSecret: true
+        },
+        {
+            id: 'secret_missions_25',
+            name: 'Command Veteran',
+            description: 'Complete 25 missions in Shark Rescue Command',
+            icon: '📡',
+            points: 140,
+            type: 'special',
+            hiddenUntilSecret: true
+        },
+        {
+            id: 'secret_apex_cells_10',
+            name: 'Cell Splitter',
+            description: 'Earn 10 Apex Cells in Shark Rescue Command',
+            icon: '🧬',
+            points: 180,
+            type: 'special',
+            hiddenUntilSecret: true
         }
     ],
     
@@ -55,25 +104,209 @@ const achievementDefinitions = {
     // Efficiency Achievements
     efficiency: [
         { id: 'avg_guesses_low', name: 'Sharp Mind', description: 'Average 4 or fewer guesses per win', icon: '🧠', points: 100, type: 'efficiency' },
-        { id: 'guess_master', name: 'Guess Master', description: 'Average 3 or fewer guesses per win', icon: '🎯', points: 150, type: 'efficiency' }
+        { id: 'guess_master', name: 'Guess Master', description: 'Average 3 or fewer guesses per win', icon: '🎯', points: 150, type: 'efficiency', themeRewardId: 'deep-abyss', themeRewardName: 'Deep Abyss' }
     ],
-    
 
-    
-    // Milestone Achievements
+    duels: [
+        { id: 'duel_played', name: 'First Blood', description: 'Play your first friend duel', icon: '⚔️', points: 40, type: 'duel' },
+        { id: 'duel_won', name: 'Apex Rival', description: 'Win a friend duel', icon: '🏆', points: 75, type: 'duel', themeRewardId: 'storm-current', themeRewardName: 'Storm Current' }
+    ],
+
+    // World Map Achievements
+    worldmap: [
+        {
+            id: 'atlantic_master',
+            name: 'Atlantic Mastered',
+            description: 'Complete the World Map Atlantic Challenge',
+            icon: '🧩',
+            points: 150,
+            type: 'worldmap'
+        },
+        {
+            id: 'pacific_master',
+            name: 'Pacific Mastered',
+            description: 'Complete the World Map Pacific Challenge',
+            icon: '🧩',
+            points: 200,
+            type: 'worldmap',
+            themeRewardId: 'coral-bloom',
+            themeRewardName: 'Coral Bloom'
+        },
+        {
+            id: 'indian_master',
+            name: 'Indian Mastered',
+            description: 'Complete Indian Region on the world map',
+            icon: '🧩',
+            points: 250,
+            type: 'worldmap'
+        },
+        {
+            id: 'sothafrica_master',
+            name: 'South Africa Mastered',
+            description: 'Complete South Africa region on the world map',
+            icon: '🧩',
+            points: 300,
+            type: 'worldmap'
+        },
+        {
+            id: 'usa_master',
+            name: 'USA Mastered',
+            description: 'Complete USA region on the world map',
+            icon: '🧩',
+            points: 350,
+            type: 'worldmap'
+        },
+        {
+            id: 'mediterranean_master',
+            name: 'Mediterranean Mastered',
+            description: 'Complete Mediterranean region on the world map',
+            icon: '🧩',
+            points: 300,
+            type: 'worldmap'
+        },
+        {
+            id: 'japan_master',
+            name: 'Japan Mastered',
+            description: 'Complete Japan region on the world map',
+            icon: '🧩',
+            points: 450,
+            type: 'worldmap'
+        },
+        {
+            id: 'australia_master',
+            name: 'Australia Mastered',
+            description: 'Complete Australia region on the world map',
+            icon: '🧩',
+            points: 325,
+            type: 'worldmap'
+        },
+    ],
+    // Social Achievements
     milestones: [
+        { id: 'friends_1', name: 'First Friend', description: 'Add your first friend', icon: '👋', points: 25, milestone: 1 },
+        { id: 'friends_3', name: 'Social Butterfly', description: 'Add 3 friends', icon: '🦋', points: 50, milestone: 3 },
+        { id: 'friends_5', name: 'Popular', description: 'Add 5 friends', icon: '⭐', points: 100, milestone: 5 },
+        { id: 'friends_10', name: 'Socialite', description: 'Add 10 friends', icon: '👥', points: 200, milestone: 10 }
     ]
 };
 
 // Initialize achievements on page load
-document.addEventListener('DOMContentLoaded', function() {
-    loadAndDisplayAchievements();
+document.addEventListener('DOMContentLoaded', async function() {
+    if (document.getElementById('achievements-content')) {
+        await waitForAchievementAuthState();
+        await loadAndDisplayAchievements();
+    }
 });
+
+function getStoredAchievementIds(key) {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(key) || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        console.warn(`Error parsing ${key}:`, error);
+        return [];
+    }
+}
+
+function setStoredAchievementIds(key, values) {
+    localStorage.setItem(key, JSON.stringify([...new Set(Array.isArray(values) ? values : [])]));
+}
+
+function mergeAchievementIdLists(...lists) {
+    return [...new Set(lists.flatMap(list => Array.isArray(list) ? list : []))];
+}
+
+function waitForAchievementAuthState(timeoutMs = 1500) {
+    if (achievementAuthReady) return Promise.resolve();
+    if (typeof firebase === "undefined" || typeof firebase.auth !== "function") {
+        achievementAuthReady = true;
+        return Promise.resolve();
+    }
+
+    return new Promise(resolve => {
+        let settled = false;
+        const finish = () => {
+            if (settled) return;
+            settled = true;
+            achievementAuthReady = true;
+            resolve();
+        };
+
+        const authInstance = firebase.auth();
+        const unsubscribe = authInstance.onAuthStateChanged(() => {
+            unsubscribe();
+            finish();
+        });
+
+        setTimeout(() => {
+            unsubscribe();
+            finish();
+        }, timeoutMs);
+    });
+}
+
+async function hydrateAchievementStateFromRemote() {
+    const localUnlocked = getStoredAchievementIds("unlockedAchievements");
+    const localClaimed = getStoredAchievementIds("claimedAchievements");
+    if (!currentUser || !db) {
+        return { unlockedAchievements: localUnlocked, claimedAchievements: localClaimed };
+    }
+
+    try {
+        const statsSnap = await db.collection("userStats").doc(currentUser.uid).get();
+        const remoteData = statsSnap.exists ? (statsSnap.data() || {}) : {};
+        const mergedUnlocked = mergeAchievementIdLists(localUnlocked, remoteData.unlockedAchievements);
+        const mergedClaimed = mergeAchievementIdLists(localClaimed, remoteData.claimedAchievements);
+        setStoredAchievementIds("unlockedAchievements", mergedUnlocked);
+        setStoredAchievementIds("claimedAchievements", mergedClaimed);
+        return { unlockedAchievements: mergedUnlocked, claimedAchievements: mergedClaimed };
+    } catch (error) {
+        console.warn("Error hydrating achievement state from Firebase:", error);
+        return { unlockedAchievements: localUnlocked, claimedAchievements: localClaimed };
+    }
+}
+
+function getStoryStateSnapshot() {
+    try {
+        return JSON.parse(localStorage.getItem(ACHIEVEMENT_STORY_STORAGE_KEY) || "{}");
+    } catch (error) {
+        console.warn("Error parsing story state:", error);
+        return {};
+    }
+}
+
+function isStoryAreaCompleted(areaId) {
+    if (localStorage.getItem(`storyAreaCompleted_${areaId}`) === 'true') {
+        return true;
+    }
+    const storyState = getStoryStateSnapshot();
+    return Boolean(storyState?.areas?.[areaId]?.completed);
+}
+
+function getCategoryAchievements(categoryKey) {
+    const achievements = [...achievementDefinitions[categoryKey]];
+    if (categoryKey !== 'worldmap') {
+        return achievements;
+    }
+
+    const worldMapOrder = [
+        'atlantic_master',
+        'pacific_master',
+        'indian_master',
+        'mediterranean_master',
+        'australia_master',
+        'sothafrica_master',
+        'usa_master',
+        'japan_master'
+    ];
+
+    return achievements.sort((a, b) => worldMapOrder.indexOf(a.id) - worldMapOrder.indexOf(b.id));
+}
 
 
 
 // Retroactively unlock achievements that players have already earned based on current stats
-function retroactivelyUnlockAchievements(profileData, unlockedAchievements) {
+async function retroactivelyUnlockAchievements(profileData, unlockedAchievements) {
     const wins = profileData.wins || 0;
     const gamesPlayed = profileData.gamesPlayed || 0;
     const currentStreak = profileData.currentStreak || 0;
@@ -111,7 +344,77 @@ function retroactivelyUnlockAchievements(profileData, unlockedAchievements) {
         }
     }
     
+    // Check friends milestones
+    if (currentUser && db) {
+        try {
+            const friendsData = await ensureFriendDocument(currentUser.uid);
+            const friendsCount = Array.isArray(friendsData.friends) ? friendsData.friends.length : 0;
+            achievementDefinitions.milestones.forEach(achievement => {
+                if (friendsCount >= achievement.milestone && !unlockedAchievements.includes(achievement.id)) {
+                    unlockedAchievements.push(achievement.id);
+                }
+            });
+        } catch (error) {
+            console.warn('Error checking friends achievements:', error);
+        }
+    }
 
+    const duelGames = profileData.duelGames || 0;
+    const duelWins = profileData.duelWins || 0;
+    if (duelGames >= 1 && !unlockedAchievements.includes('duel_played')) {
+        unlockedAchievements.push('duel_played');
+    }
+    if (duelWins >= 1 && !unlockedAchievements.includes('duel_won')) {
+        unlockedAchievements.push('duel_won');
+    }
+    if (localStorage.getItem('secretGameDiscovered') === 'true' && !unlockedAchievements.includes('secret_command_found')) {
+        unlockedAchievements.push('secret_command_found');
+    }
+    if (typeof window.getOpenedCrateCount === 'function' && window.getOpenedCrateCount(profileData) >= 1 && !unlockedAchievements.includes('crate_opened')) {
+        unlockedAchievements.push('crate_opened');
+    }
+    const secretState = getSecretCommandState();
+    if ((secretState.prestigeCount || 0) >= 1 && !unlockedAchievements.includes('secret_prestige_1')) {
+        unlockedAchievements.push('secret_prestige_1');
+    }
+    if ((secretState.missionsCompleted || 0) >= 25 && !unlockedAchievements.includes('secret_missions_25')) {
+        unlockedAchievements.push('secret_missions_25');
+    }
+    if ((secretState.apexCells || 0) >= 10 && !unlockedAchievements.includes('secret_apex_cells_10')) {
+        unlockedAchievements.push('secret_apex_cells_10');
+    }
+
+    // Check story/world map progress
+    try {
+        const atlanticChallenges = JSON.parse(localStorage.getItem('atlanticChallenges') || '[false,false,false,false,false]');
+        const atlanticComplete = Array.isArray(atlanticChallenges) && atlanticChallenges.every(Boolean);
+        if ((atlanticComplete || localStorage.getItem('atlanticCrosswordComplete') === 'true' || isStoryAreaCompleted('atlantic')) && !unlockedAchievements.includes('atlantic_master')) {
+            unlockedAchievements.push('atlantic_master');
+        }
+        if ((localStorage.getItem('pacificWordsearchComplete') === 'true' || isStoryAreaCompleted('pacific')) && !unlockedAchievements.includes('pacific_master')) {
+            unlockedAchievements.push('pacific_master');
+        }
+        if (isStoryAreaCompleted('indian') && !unlockedAchievements.includes('indian_master')) {
+            unlockedAchievements.push('indian_master');
+        }
+        if (isStoryAreaCompleted('mediterranean') && !unlockedAchievements.includes('mediterranean_master')) {
+            unlockedAchievements.push('mediterranean_master');
+        }
+        if (isStoryAreaCompleted('australia') && !unlockedAchievements.includes('australia_master')) {
+            unlockedAchievements.push('australia_master');
+        }
+        if (isStoryAreaCompleted('south_africa') && !unlockedAchievements.includes('sothafrica_master')) {
+            unlockedAchievements.push('sothafrica_master');
+        }
+        if (isStoryAreaCompleted('usa_east') && !unlockedAchievements.includes('usa_master')) {
+            unlockedAchievements.push('usa_master');
+        }
+        if (isStoryAreaCompleted('japan') && !unlockedAchievements.includes('japan_master')) {
+            unlockedAchievements.push('japan_master');
+        }
+    } catch (error) {
+        console.warn('Error checking world map achievements:', error);
+    }
     
     // Save the updated list
     localStorage.setItem("unlockedAchievements", JSON.stringify(unlockedAchievements));
@@ -119,9 +422,12 @@ function retroactivelyUnlockAchievements(profileData, unlockedAchievements) {
     return unlockedAchievements;
 }
 
-function loadAndDisplayAchievements() {
-    const profileData = JSON.parse(localStorage.getItem("userProfile") || "{}");
-    let unlockedAchievements = JSON.parse(localStorage.getItem("unlockedAchievements") || "[]");
+async function loadAndDisplayAchievements() {
+    const hydratedState = await hydrateAchievementStateFromRemote();
+    let profileData = typeof window.getCurrentProfileData === "function"
+        ? window.getCurrentProfileData()
+        : JSON.parse(localStorage.getItem("userProfile") || "{}");
+    let unlockedAchievements = hydratedState.unlockedAchievements;
     
     // Remove old XP-based achievement IDs that no longer exist
     const oldAchievementIds = ['100_xp_earned', '500_xp_earned', '1000_xp_earned', '2000_xp_earned'];
@@ -129,10 +435,30 @@ function loadAndDisplayAchievements() {
     localStorage.setItem("unlockedAchievements", JSON.stringify(unlockedAchievements));
     
     // Retroactively unlock achievements for existing players based on current stats
-    unlockedAchievements = retroactivelyUnlockAchievements(profileData, unlockedAchievements);
+    unlockedAchievements = await retroactivelyUnlockAchievements(profileData, unlockedAchievements);
+    if (typeof window.syncAchievementThemeUnlocks === "function") {
+        const themeSyncResult = window.syncAchievementThemeUnlocks(profileData);
+        profileData = themeSyncResult.profileData;
+        if (themeSyncResult.changed && typeof window.syncStatsToFirebase === "function") {
+            window.syncStatsToFirebase().catch(error => console.error("Error syncing achievement themes:", error));
+        }
+    }
     
     renderAchievements(profileData, unlockedAchievements);
     updateAchievementStats(unlockedAchievements);
+}
+
+function getSecretCommandState() {
+    try {
+        return JSON.parse(localStorage.getItem(SECRET_SAVE_KEY) || "{}");
+    } catch (error) {
+        console.warn("Error parsing secret command state:", error);
+        return {};
+    }
+}
+
+function hasSecretPageDiscovery() {
+    return localStorage.getItem('secretGameDiscovered') === 'true';
 }
 
 function renderAchievements(profileData, unlockedAchievements) {
@@ -143,11 +469,17 @@ function renderAchievements(profileData, unlockedAchievements) {
     }
     container.innerHTML = '';
 
+    // Render World Map achievements
+    if (achievementDefinitions.worldmap.length > 0) {
+        container.appendChild(createCategorySection('🗺️ World Map', 'worldmap', profileData, unlockedAchievements));
+    }
     // Render special achievements
     if (achievementDefinitions.special.length > 0) {
         container.appendChild(createCategorySection('🌟 Special Achievements', 'special', profileData, unlockedAchievements));
     }
-    
+    if (achievementDefinitions.duels.length > 0) {
+        container.appendChild(createCategorySection('⚔️ Duel Achievements', 'duels', profileData, unlockedAchievements));
+    }
 
     
     // Render win milestones
@@ -180,15 +512,27 @@ function createCategorySection(categoryName, categoryKey, profileData, unlockedA
     const section = document.createElement('div');
     section.className = 'achievement-category';
     
+    const achievements = getCategoryAchievements(categoryKey);
+    const unlockedCount = achievements.filter(achievement => unlockedAchievements.includes(achievement.id)).length;
+    const header = document.createElement('div');
+    header.className = 'category-header';
+
     const title = document.createElement('h2');
     title.className = 'category-title';
     title.textContent = categoryName;
-    section.appendChild(title);
+
+    const meta = document.createElement('div');
+    meta.className = 'category-meta';
+    meta.textContent = `${unlockedCount}/${achievements.length} unlocked`;
+
+    header.appendChild(title);
+    header.appendChild(meta);
+    section.appendChild(header);
     
     const grid = document.createElement('div');
     grid.className = 'achievements-grid';
     
-    achievementDefinitions[categoryKey].forEach(achievement => {
+    achievements.forEach(achievement => {
         grid.appendChild(createAchievementCard(achievement, profileData, unlockedAchievements));
     });
     
@@ -199,87 +543,77 @@ function createCategorySection(categoryName, categoryKey, profileData, unlockedA
 function createAchievementCard(achievement, profileData, unlockedAchievements) {
     const card = document.createElement('div');
     card.className = 'achievement-card';
+    const secretHidden = achievement.hiddenUntilSecret && !hasSecretPageDiscovery();
     
     const isUnlocked = unlockedAchievements.includes(achievement.id);
-    const claimedAchievements = JSON.parse(localStorage.getItem("claimedAchievements") || "[]");
+    const claimedAchievements = getStoredAchievementIds("claimedAchievements");
     const isClaimed = claimedAchievements.includes(achievement.id);
     
     card.classList.add(isUnlocked ? 'unlocked' : 'locked');
     
+    const media = document.createElement('div');
+    media.className = 'achievement-media';
+
     const icon = document.createElement('div');
     icon.className = 'achievement-icon';
-    icon.textContent = achievement.icon;
+    icon.textContent = secretHidden ? '❔' : achievement.icon;
+    media.appendChild(icon);
     
     const name = document.createElement('div');
     name.className = 'achievement-name';
-    name.textContent = achievement.name;
+    name.textContent = secretHidden ? '???' : achievement.name;
     
     const description = document.createElement('div');
     description.className = 'achievement-description';
-    description.textContent = achievement.description;
+    description.textContent = secretHidden ? '???' : achievement.description;
     
     const pointsDisplay = document.createElement('div');
     pointsDisplay.className = 'achievement-points';
     pointsDisplay.textContent = `+${achievement.points} XP`;
-    pointsDisplay.style.cssText = `
-        font-size: 0.9em;
-        color: #4dd0e1;
-        font-weight: 600;
-        margin-bottom: 10px;
-    `;
     
     const status = document.createElement('div');
     status.className = 'achievement-status';
+
+    const content = document.createElement('div');
+    content.className = 'achievement-content';
+    content.appendChild(name);
+    content.appendChild(description);
+    if (achievement.themeRewardName && !secretHidden) {
+        const rewardNote = document.createElement('div');
+        rewardNote.className = 'achievement-description';
+        rewardNote.textContent = `Unlocks the ${achievement.themeRewardName} profile theme when claimed.`;
+        content.appendChild(rewardNote);
+    }
+
+    const side = document.createElement('div');
+    side.className = 'achievement-side';
+    side.appendChild(pointsDisplay);
     
     // Determine progress display
-    let progressHTML = '';
+    let progressBar = null;
     if (isUnlocked) {
         if (isClaimed) {
-            status.textContent = '✓ Claimed';
-            status.style.cssText = `
-                background: rgba(76, 175, 80, 0.3);
-                color: #4caf50;
-                font-size: 0.85em;
-                padding: 8px 12px;
-                border-radius: 6px;
-                font-weight: 600;
-            `;
+            status.textContent = 'Claimed';
+            status.classList.add('claimed');
         } else {
-            // Create claim button
+            status.textContent = 'Unlocked';
+            status.classList.add('ready');
             const claimBtn = document.createElement('button');
             claimBtn.textContent = 'Claim Reward';
-            claimBtn.style.cssText = `
-                background: linear-gradient(135deg, #00b4d8, #4dd0e1);
-                color: #000;
-                border: none;
-                padding: 10px 16px;
-                border-radius: 6px;
-                font-weight: 600;
-                cursor: pointer;
-                font-size: 0.85em;
-                transition: all 0.3s ease;
-                width: 100%;
-            `;
-            claimBtn.onmouseover = function() {
-                this.style.transform = 'scale(1.05)';
-                this.style.boxShadow = '0 4px 12px rgba(77, 208, 225, 0.4)';
-            };
-            claimBtn.onmouseout = function() {
-                this.style.transform = 'scale(1)';
-                this.style.boxShadow = 'none';
-            };
+            claimBtn.className = 'achievement-claim-btn';
             claimBtn.onclick = async function(e) {
                 e.stopPropagation();
+                claimBtn.disabled = true;
                 await claimAchievementReward(achievement.id, achievement.points);
-        w        // Reload achievements to update display
-                setTimeout(() => loadAndDisplayAchievements(), 300);
+                // Reload achievements to update display
+                setTimeout(async () => await loadAndDisplayAchievements(), 300);
             };
             
-            card.appendChild(icon);
-            card.appendChild(name);
-            card.appendChild(description);
-            card.appendChild(pointsDisplay);
-            card.appendChild(claimBtn);
+            side.appendChild(status);
+            side.appendChild(claimBtn);
+            card.appendChild(media);
+            card.appendChild(content);
+            card.appendChild(side);
             return card;
         }
     } else if (achievement.milestone) {
@@ -295,29 +629,31 @@ function createAchievementCard(achievement, profileData, unlockedAchievements) {
         
         const progress = Math.min((currentProgress / achievement.milestone) * 100, 100);
         status.textContent = `${currentProgress}/${achievement.milestone}`;
-        progressHTML = `<div class="progress-bar"><div class="progress-fill" style="width: ${progress}%"></div></div>`;
+        status.classList.add('progressing');
+        progressBar = document.createElement('div');
+        progressBar.className = 'progress-bar';
+        const progressFill = document.createElement('div');
+        progressFill.className = 'progress-fill';
+        progressFill.style.width = `${progress}%`;
+        progressBar.appendChild(progressFill);
     } else {
-        status.textContent = '🔒 Locked';
+        status.textContent = 'Locked';
+        status.classList.add('locked-pill');
     }
     
-    card.appendChild(icon);
-    card.appendChild(name);
-    card.appendChild(description);
-    if (isUnlocked) {
-        card.appendChild(pointsDisplay);
-    }
-    card.appendChild(status);
-    if (progressHTML) {
-        card.innerHTML += progressHTML;
-    }
+    side.appendChild(status);
+    if (progressBar) content.appendChild(progressBar);
+    card.appendChild(media);
+    card.appendChild(content);
+    card.appendChild(side);
     
     return card;
 }
 
 function updateAchievementStats(unlockedAchievements) {
     const totalAchievements = Object.values(achievementDefinitions).flat().length;
-    const unlockedCount = unlockedAchievements.length;
-    const claimedAchievements = JSON.parse(localStorage.getItem("claimedAchievements") || "[]");
+    const unlockedCount = new Set(unlockedAchievements).size;
+    const claimedAchievements = getStoredAchievementIds("claimedAchievements");
     const claimedPoints = calculateClaimedPoints(claimedAchievements);
     const percentage = Math.round((unlockedCount / totalAchievements) * 100);
     
@@ -342,7 +678,6 @@ function calculateClaimedPoints(claimedAchievements) {
     return total;
 }
 
-// Function to unlock an achievement
 function unlockAchievement(achievementId) {
     const unlockedAchievements = JSON.parse(localStorage.getItem("unlockedAchievements") || "[]");
     
@@ -370,17 +705,31 @@ function unlockAchievement(achievementId) {
     }
 }
 
-// Function to claim achievement reward and add XP
 async function claimAchievementReward(achievementId, points) {
-    const claimedAchievements = JSON.parse(localStorage.getItem("claimedAchievements") || "[]");
+    const { claimedAchievements: hydratedClaimed } = await hydrateAchievementStateFromRemote();
+    const claimedAchievements = [...hydratedClaimed];
     
     if (!claimedAchievements.includes(achievementId)) {
         claimedAchievements.push(achievementId);
-        localStorage.setItem("claimedAchievements", JSON.stringify(claimedAchievements));
+        setStoredAchievementIds("claimedAchievements", claimedAchievements);
+        if (currentUser && db) {
+            try {
+                await db.collection("userStats").doc(currentUser.uid).set({
+                    claimedAchievements
+                }, { merge: true });
+            } catch (error) {
+                console.error("Error writing claimed achievement to Firebase:", error);
+            }
+        }
         
         // Add XP to user profile
-        const profileData = JSON.parse(localStorage.getItem("userProfile") || "{}");
-        profileData.totalXP = (profileData.totalXP || 0) + points;
+        const profileData = typeof window.getCurrentProfileData === "function"
+            ? window.getCurrentProfileData()
+            : JSON.parse(localStorage.getItem("userProfile") || "{}");
+        const xpAward = typeof window.applyLimitedTimeXpBonus === "function"
+            ? window.applyLimitedTimeXpBonus(points)
+            : { totalXp: points, multiplier: 1, baseXp: points };
+        profileData.totalXP = (profileData.totalXP || 0) + xpAward.totalXp;
         
         // Handle special cosmetic rewards from achievement definitions
         const allAchievements = Object.values(achievementDefinitions).flat();
@@ -393,8 +742,18 @@ async function claimAchievementReward(achievementId, points) {
                 profileData.earnedCosmetics.push(achievement.cosmetic);
             }
         }
+        let unlockedThemeName = "";
+        if (achievement?.themeRewardId && typeof window.syncAchievementThemeUnlocks === "function") {
+            const themeSyncResult = window.syncAchievementThemeUnlocks(profileData);
+            profileData.unlockedCardThemes = themeSyncResult.unlockedThemeIds;
+            unlockedThemeName = achievement.themeRewardName || achievement.themeRewardId;
+        }
         
-        localStorage.setItem("userProfile", JSON.stringify(profileData));
+        if (typeof window.saveUserProfileLocally === "function") {
+            window.saveUserProfileLocally(profileData);
+        } else {
+            localStorage.setItem("userProfile", JSON.stringify(profileData));
+        }
         
         // Sync to Firebase to prevent duplicate claims on other devices
         if (window.syncStatsToFirebase) {
@@ -406,12 +765,40 @@ async function claimAchievementReward(achievementId, points) {
         }
         
         // Show claim notification
-        showClaimNotification(points);
+        showClaimNotification(xpAward.totalXp, xpAward.multiplier, xpAward.baseXp);
+        if (unlockedThemeName && typeof showNotification === "function") {
+            showNotification(`${unlockedThemeName} profile theme unlocked!`, 'success', 4200);
+        }
     }
 }
 
 // Notification stack manager
 let notificationStack = [];
+let achievementAnimationInjected = false;
+
+function ensureAchievementAnimation() {
+    if (achievementAnimationInjected || document.getElementById('achievement-toast-animation')) {
+        achievementAnimationInjected = true;
+        return;
+    }
+
+    const style = document.createElement('style');
+    style.id = 'achievement-toast-animation';
+    style.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    achievementAnimationInjected = true;
+}
 
 function getNotificationPosition() {
     const activeNotifications = document.querySelectorAll('[data-notification]').length;
@@ -420,8 +807,8 @@ function getNotificationPosition() {
     return 20 + (activeNotifications * (notificationHeight + spacing));
 }
 
-// Function to show claim reward notification
-function showClaimNotification(points) {
+function showClaimNotification(points, multiplier = 1, basePoints = points) {
+    ensureAchievementAnimation();
     const notification = document.createElement('div');
     notification.setAttribute('data-notification', 'true');
     
@@ -448,7 +835,7 @@ function showClaimNotification(points) {
             <div style="font-size: 24px;">⭐</div>
             <div>
                 <div style="font-weight: 700; font-size: 1.1em;">Reward Claimed!</div>
-                <div style="font-size: 0.9em;">+${points} XP</div>
+                <div style="font-size: 0.9em;">+${points} XP${multiplier > 1 ? ` (${multiplier}x from ${basePoints})` : ''}</div>
             </div>
         </div>
     `;
@@ -466,9 +853,10 @@ function showClaimNotification(points) {
     }, 4000);
 }
 
-// Function to check and unlock achievements after game completion
 function checkAchievements(isWin, guessesTaken, wasGameWon) {
-    const profileData = JSON.parse(localStorage.getItem("userProfile") || "{}");
+    const profileData = typeof window.getCurrentProfileData === "function"
+        ? window.getCurrentProfileData()
+        : JSON.parse(localStorage.getItem("userProfile") || "{}");
     
     // Check special achievements
     if (isWin && guessesTaken === 2) {
@@ -537,6 +925,7 @@ function checkAchievements(isWin, guessesTaken, wasGameWon) {
 
 // Show achievement notification
 function showAchievementNotification(achievement) {
+    ensureAchievementAnimation();
     const notification = document.createElement('div');
     notification.setAttribute('data-notification', 'true');
     
@@ -564,29 +953,13 @@ function showAchievementNotification(achievement) {
             <div>
                 <div style="font-weight: 700; font-size: 1.1em;">Achievement Unlocked!</div>
                 <div style="font-size: 0.9em;">${achievement.name}</div>
-                <div style="font-size: 0.85em; opacity: 0.9;">+${achievement.points} points</div>
+                <div style="font-size: 0.85em; opacity: 0.9;">+${achievement.points} XP</div>
             </div>
         </div>
     `;
     
     document.body.appendChild(notification);
     notificationStack.push(notification);
-    
-    // Add animation
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideIn {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-    `;
-    document.head.appendChild(style);
     
     // Remove after 4 seconds
     setTimeout(() => {
@@ -601,4 +974,5 @@ function showAchievementNotification(achievement) {
 // Expose function for game files
 window.checkAchievements = checkAchievements;
 window.unlockAchievement = unlockAchievement;
+window.loadAndDisplayAchievements = loadAndDisplayAchievements;
 window.claimAchievementReward = claimAchievementReward;
