@@ -39,7 +39,13 @@ const common_names = [
     {"scientific": "Haploblepharus", "Common": "ShySharks"},
 ];
 
-let targetShark = sharks[Math.floor(Math.random() * sharks.length)];
+let lastFamily = localStorage.getItem('practiceLastFamily');
+let targetIndex;
+do {
+  targetIndex = Math.floor(Math.random() * sharks.length);
+} while (lastFamily && sharks[targetIndex].family === lastFamily);
+let targetShark = sharks[targetIndex];
+localStorage.setItem('practiceLastFamily', targetShark.family);
 let guessesMade = 0;
 
 const sizeThresholds = {
@@ -73,7 +79,12 @@ function makeGuess() {
     const messageDiv = document.getElementById("message");
     const winLoseScreen = document.getElementById("win-lose-screen");
 
-    const guessedShark = sharks.find(s => normalizeInput(s.name).startsWith(guessInput));
+    if (!guessInput) {
+        messageDiv.textContent = "Enter a shark name.";
+        return;
+    }
+
+    const guessedShark = sharks.find(s => normalizeInput(s.name) === guessInput);
     if (!guessedShark) {
         messageDiv.textContent = "Shark not found in the list.";
         return;
@@ -296,8 +307,8 @@ function createBubbles() {
 
 // Console command for testing: revealShark() - Dev only
 window.revealShark = function() {
-    const DEV_UID = 'ETPtQC0VA2NiSnX67rS2P2ma2tC2';
-    if (!firebase.auth().currentUser || firebase.auth().currentUser.uid !== DEV_UID) {
+    const DEV_UIDS = ['ETPtQC0VA2NiSnX67rS2P2ma2tC2', 'gOcPqOuyPJRWisE4dxvFkGTOl5g2'];
+    if (!firebase.auth().currentUser || !DEV_UIDS.includes(firebase.auth().currentUser.uid)) {
         console.log("Access denied. This command is for developers only.");
         return;
     }
