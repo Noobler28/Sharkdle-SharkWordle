@@ -1,23 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="icon" type="image/png" href="images/favicon.png">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Sharkdle</title>
-
+<title>Sharkdle - Shark Wordle</title>
 <link rel="stylesheet" href="style.css">
 
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
 <!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
+<script src="sharks.js"></script>
+
 </head>
 
-<body>
+<body class="home-page">
 
 <header class="navbar">
 
@@ -26,90 +29,138 @@
 </div>
 
 <div id="auth-container" class="auth-container">
-<button onclick="navigate('practice.html')" class="nav-btn">Practice Mode</button>
-<button onclick="navigate('achievements.html')" class="nav-btn">Achievements</button>
+<div id="xp-event-banner" class="xp-event-banner hidden" aria-live="polite">
+<div class="xp-event-icon">⚡</div>
+<div class="xp-event-copy">
+<span class="xp-event-title">2x XP gain active</span>
+<span class="xp-event-timer" id="xp-event-timer">Ends in 00:00:00</span>
+</div>
+</div>
 <button id="login-btn" onclick="openLoginModal()" class="auth-btn">Login</button>
 </div>
 
 </header>
 
 
-<section class="hero">
+<main class="home-shell">
+<section class="hero home-hero">
 
+<div class="home-hero-inner">
 <h1>Welcome to Sharkdle</h1>
 
 
-<p>Dive into the ultimate shark guessing game</p>
+<p class="hero-subtitle">Dive into the ultimate shark guessing game.</p>
 
-<div id="login-warning" class="login-warning hidden" style="margin-top: 15px; padding: 12px; background: rgba(255, 152, 0, 0.15); border-left: 3px solid #ff9800; border-radius: 6px; color: #ffb74d; font-size: 14px; font-weight: 600;">
+<div class="hero-cta-row">
+
+</div>
+
+<div id="login-warning" class="login-warning hero-alert hidden">
 ⚠️ You are not logged in. Your stats and XP won't be saved. <button onclick="openLoginModal()" style="background: #ff9800; color: #fff; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-weight: 600;">Login</button>
 </div>
 
-<div id="daily-bonus-msg" style="margin-top: 15px; padding: 12px; background: rgba(0, 180, 216, 0.15); border-left: 3px solid #00b4d8; border-radius: 6px; color: #4dd0e1; font-size: 14px; font-weight: 600;"></div>
+<div class="hero-bonus-row">
+<div id="daily-bonus-msg" class="hero-bonus-banner"></div>
+<button id="crates-btn" class="hero-crates-btn hidden" onclick="openCratesModal()">
+<i class="fa-solid fa-box-open"></i>
+<span>Crates</span>
+<strong id="crates-btn-count">0</strong>
+</button>
+</div>
 
+</div>
 </section>
 
 
-<section class="menu-grid">
+<section class="home-section">
+<section class="menu-grid home-menu-grid">
+
 
 <div class="game-card" onclick="navigate('daily.html')">
-<i class="fa-solid fa-calendar-day"></i>
-<h2>Daily Challenge</h2>
-<p>One shark per day. Can you guess it?</p>
+    <div class="game-card-topline">Today's Run</div>
+    <i class="fa-solid fa-calendar-day"></i>
+    <h2>Daily Challenge</h2>
+    <p>One shark per day. Can you guess it?</p>
 </div>
 
 <div class="game-card" onclick="navigate('infinite.html')">
-<i class="fa-solid fa-infinity"></i>
-<h2>Infinite Mode</h2>
-<p>Infinite Games, Endless Fun!</p>
+    <i class="fa-solid fa-infinity"></i>
+    <h2>Infinite Mode</h2>
+    <p>Infinite games, endless fun.</p>
+</div>
+
+<div class="game-card" onclick="navigate('practice.html')">
+    <i class="fa-solid fa-dumbbell"></i>
+    <h2>Practice Mode</h2>
+    <p>Unlimited guesses, no pressure.</p>
+</div>
+
+<div class="game-card" onclick="navigate('story.html')">
+    <i class="fa-solid fa-globe"></i>
+    <h2>World Map</h2>
+    <p>Travel the globe and complete challenges.</p>
+</div>
+
+<div class="game-card" onclick="navigate('achievements.html')">
+    <i class="fa-solid fa-trophy"></i>
+    <h2>Achievements</h2>
+    <p>Track your progress and claim rewards.</p>
 </div>
 
 <div class="game-card" onclick="navigate('library.html')">
-<i class="fa-solid fa-fish"></i>
-<h2>Shark Library</h2>
-<p>Explore every shark in the game.</p>
+    <i class="fa-solid fa-fish"></i>
+    <h2>The Sharchive</h2>
+    <p>Explore every shark in the game.</p>
 </div>
 
 <div class="game-card" onclick="navigate('sharkpass.html')">
-<i class="fa-solid fa-id-card"></i>
-<h2>Shark Pass</h2>
-<p>Earn XP, Collect cosmetics</p>
+    <i class="fa-solid fa-id-card"></i>
+    <h2>Shark Pass</h2>
+    <p>Earn XP, collect cosmetics.</p>
 </div>
 
 <div class="game-card" onclick="navigate('leaderboards.html')">
-<i class="fa-solid fa-trophy"></i>
-<h2>Leaderboards</h2>
-<p>See the top Sharkdle players.</p>
+    <i class="fa-solid fa-ranking-star"></i>
+    <h2>Leaderboards</h2>
+    <p>See the top Sharkdle players.</p>
 </div>
 
 </section>
+</section>
 
 
-<footer>
+</main>
+
+<footer class="home-footer">
 
 
-<p>Made with <span style="color:#ff6b6b;font-weight:bold;">❤️</span> by the Sharkdle Team — thanks for playing!</p>
+<p>Made with <span style="color:#ff6b6b;font-weight:bold;">❤️</span> by the Sharkdle Team - thanks for playing!</p>
 <div style="margin: 10px 0 8px 0;">
-    <button onclick="openDevModal()" style="background:none;border:none;color:#4dd0e1;cursor:pointer;font-weight:600;text-decoration:underline;font-size:inherit;">Meet the Dev</button>
+    <button onclick="openDevModal()" style="background:none;border:none;background:linear-gradient(45deg,#f6d365,#fda085);-webkit-background-clip:text;background-clip:text;color:transparent;cursor:pointer;font-weight:600;text-decoration:underline;font-size:inherit;margin:0 8px;">Meet the Dev</button>
 </div>
 <div class="links">
-<a href="https://github.com/Noobler28/sharkdle">GitHub</a>
-<a href="updates.html">Updates</a>
-<a href="https://discord.gg/V97Y8545Ve">Discord</a>
+<a href="https://github.com/Noobler28/sharkdle" target="_blank" style="background:linear-gradient(45deg,#333,#6e6e6e);-webkit-background-clip:text;background-clip:text;color:transparent;text-decoration:underline;margin:0 8px;">GitHub</a>
+
+<a href="updates.html" style="background:linear-gradient(45deg,#4dd0e1,#00bcd4);-webkit-background-clip:text;background-clip:text;color:transparent;text-decoration:underline;margin:0 8px;">Updates</a>
+
+<a href="https://discord.gg/V97Y8545Ve" target="_blank" style="background:linear-gradient(45deg,#5865F2,#7289da);-webkit-background-clip:text;background-clip:text;color:transparent;text-decoration:underline;margin:0 8px;">Discord</a>
 </div>
 
 <p style="font-size: 12px; color: #888; margin-top: 15px;">© 2026 Sharkdle. All rights reserved.</p>
 
 <!-- Meet the Dev Modal -->
 <div id="devModal" class="modal hidden">
-    <div class="modal-content" style="width:90%;max-width:400px;text-align:center;">
+    <div class="modal-content dev-modal-content" style="width:90%;max-width:400px;text-align:center;">
         <h2 style="margin-top:0;">👨‍💻 Meet the Dev</h2>
-        <img src="images/dev.jpg" alt="Dev Profile" style="width:70px;height:70px;border-radius:50%;border:2px solid #00b4d8;margin-bottom:10px;">
+        <a href="secret.html" style="text-decoration:none;display:inline-block;cursor:pointer;">
+            <img src="images/dev.jpg" alt="Dev Profile" style="width:70px;height:70px;border-radius:50%;border:2px solid #00b4d8;margin-bottom:10px;transition:0.2s ease;display:block;">
+        </a>
         <h3 style="margin:10px 0 6px 0;font-size:1.15em;color:#4dd0e1;">Noobler28 (Connor)</h3>
-        <p style="color:#bbb;font-size:14px;margin-bottom:12px;">Hi! I’m Connor, a college student studying marine biology and the solo developer behind Sharkdle. I started this project out of my love for sharks and ocean science. What began as a passion project has grown thanks to your support, and it motivates me to keep building new features and sharing my love for the ocean with you all. Thank you for playing and being part of the Sharkdle community!</p>
+        <p style="color:#bbb;font-size:14px;margin-bottom:12px;">Hi! I'm Connor, a college student studying marine biology and the solo developer behind Sharkdle. I started this project out of my love for sharks and ocean science. What began as a passion project has grown thanks to your support, and it motivates me to keep building new features and sharing my love for the ocean with you all. Thank you for playing and being part of the Sharkdle community!</p>
         <div style="margin-bottom:12px;">
-            <a href="https://github.com/Noobler28" target="_blank" style="color:#4dd0e1;text-decoration:underline;margin:0 8px;">GitHub</a>
-            <a href="https://discord.gg/V97Y8545Ve" target="_blank" style="color:#4dd0e1;text-decoration:underline;margin:0 8px;">Discord</a>
+            <a href="https://github.com/Noobler28" target="_blank" style="background:linear-gradient(45deg,#333,#6e6e6e);-webkit-background-clip:text;background-clip:text;color:transparent;text-decoration:underline;margin:0 8px;">GitHub</a>
+            <a href="https://instagram.com/sharkdle.dev" target="_blank" style="background:linear-gradient(45deg,#feda75,#fa7e1e,#d62976,#962fbf,#4f5bd5);-webkit-background-clip:text;background-clip:text;color:transparent;text-decoration:underline;margin:0 8px;">Instagram</a>
+            <a href="https://discord.gg/V97Y8545Ve" target="_blank" style="background:linear-gradient(45deg,#5865F2,#7289da);-webkit-background-clip:text;background-clip:text;color:transparent;text-decoration:underline;margin:0 8px;">Discord</a>
         </div>
         <button onclick="closeDevModal()" style="width:100%;padding:10px;margin-top:8px;background:#ccc;color:#333;border:none;border-radius:6px;cursor:pointer;font-weight:600;">Close</button>
     </div>
@@ -147,31 +198,44 @@
 
 <!-- Profile Modal -->
 <div id="profileModal" class="modal hidden">
-<div class="modal-content" style="width: 90%; max-width: 750px;">
-<h2 style="margin-top: 0;">Profile</h2>
+<div class="modal-content profile-modal-content" style="width: 90%; max-width: 750px;">
+<div class="profile-modal-heading">
+<div class="profile-modal-kicker">Player Profile</div>
+</div>
 
-<div class="profile-section" style="display: flex; align-items: center; gap: 20px; margin: 20px 0; padding: 20px; background: rgba(0, 180, 216, 0.1); border-radius: 8px;">
-<div style="position: relative;">
-    <img id="profile-pic" src="https://ui-avatars.com/api/?name=User&background=00b4d8&color=fff" alt="Profile" style="width: 80px; height: 80px; border-radius: 50%; cursor: pointer;" onclick="openProfilePicModal()">
+<div id="profile-hero-card" class="profile-hero-card theme-default">
+<div class="profile-avatar-shell" style="position: relative;">
+    <img id="profile-pic" src="https://ui-avatars.com/api/?name=User&background=00b4d8&color=fff" alt="Profile" class="profile-avatar-image" style="width: 80px; height: 80px; border-radius: 50%; cursor: pointer;" onclick="openProfilePicModal()">
     <button onclick="openProfilePicModal()" style="position: absolute; bottom: 0; right: 0; background: #00b4d8; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;">✎</button>
 </div>
-<div style="position: relative; display: flex; align-items: center;">
-    <p style="margin: 5px 0; font-weight: 600; font-size: 18px;" id="profile-username">Username</p>
-    <button id="edit-profile-btn" onclick="enableUsernameEdit()" style="background: none; border: none; color: #00b4d8; cursor: pointer; font-size: 16px; margin-left: 8px;">✎</button>
+<div class="profile-identity-block">
+<div class="username-editor-shell">
+    <div class="username-display-row">
+        <div class="profile-name-cluster">
+            <p class="profile-username-text" id="profile-username">Username</p>
+            <span id="profile-leaderboard-badge" class="profile-leaderboard-badge hidden"></span>
+        </div>
+        <button id="edit-profile-btn" onclick="enableUsernameEdit()" class="profile-edit-btn" aria-label="Edit username">✎</button>
+    </div>
     <div id="username-edit-container" class="hidden username-edit-container">
         <input type="text" id="username-input" placeholder="New username" class="username-input">
-        <button onclick="saveUsername()" class="btn-save">Save</button>
-        <button onclick="cancelUsernameEdit()" class="btn-cancel">Cancel</button>
+        <div class="username-edit-actions">
+            <button onclick="saveUsername()" class="btn-save">Save</button>
+            <button onclick="cancelUsernameEdit()" class="btn-cancel">Cancel</button>
+        </div>
     </div>
 </div>
-<div style="margin-left:30px; text-align:center;">
-    <img id="profile-badge-img" src="images/badges/starter.png" alt="Badge" style="width:48px;height:48px;border-radius:8px;border:2px solid #00b4d8;display:block;margin:0 auto 4px;">
-    <span id="profile-badge-label" style="font-size:13px;font-weight:600;">Starter</span>
+</div>
+<div class="profile-badge-panel" style="margin-left:30px; text-align:center;">
+    <div class="profile-badge-kicker">Equipped Badge</div>
+    <img id="profile-badge-img" src="images/badges/starter.png" alt="Badge" class="profile-badge-image" style="width:48px;height:48px;border-radius:8px;border:2px solid #00b4d8;display:block;margin:0 auto 4px;">
+    <span id="profile-badge-label" class="profile-badge-name" style="font-size:13px;font-weight:600;">Starter</span>
+    <button onclick="openBadgeModal()" class="profile-badge-btn" style="margin-top:10px;padding:8px 12px;background:#00b4d8;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:12px;">Edit Badge</button>
 </div>
 </div>
-<div style="margin:10px 0 20px 0;">
-    <h4 style="font-size:15px;margin-bottom:6px;">Badges</h4>
-    <div id="badge-select-container" style="display:flex;align-items:center;"></div>
+<div class="profile-theme-section" style="margin:10px 0 20px 0;">
+    <h4 style="font-size:15px;margin-bottom:6px;">Card Theme</h4>
+    <div id="theme-select-container" class="profile-cosmetic-row theme-select-grid"></div>
 </div>
 
 
@@ -179,6 +243,7 @@
     <div class="profile-tabs">
         <button class="profile-tab-btn active" id="stats-tab-btn" onclick="showProfileTab('stats')">Stats</button>
         <button class="profile-tab-btn" id="recent-tab-btn" onclick="showProfileTab('recent')">Recent Games</button>
+        <button class="profile-tab-btn" id="friends-tab-btn" onclick="showProfileTab('friends')">Friends</button>
     </div>
     <div class="profile-tab-content" id="stats-tab" style="display:block;">
         <div class="stats-detail profile-stats-scroll">
@@ -219,6 +284,121 @@
     <div class="profile-tab-content" id="recent-tab" style="display:none;">
         <div class="recent-games-list" id="recent-games-list" style="max-height:260px;overflow-y:auto;"></div>
     </div>
+    <div class="profile-tab-content" id="friends-tab" style="display:none;">
+        <div class="friends-container">
+            <!-- Compact Header with Stats and User Info -->
+            <div class="friends-header">
+                <div class="friends-hero-copy">
+                    <div class="friends-kicker">Social hub</div>
+                    <h3 class="friends-title">Add Friends</h3>
+                    <p class="friends-subtitle">Connect with other players, challenge them to duels and more.</p>
+                    <div class="friends-stats">
+                    <div class="stat-item">
+                        <div class="stat-number" id="friends-count">0</div>
+                        <div class="stat-label">Friends</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="requests-count">0</div>
+                        <div class="stat-label">Requests</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="duels-count">0</div>
+                        <div class="stat-label">Duels</div>
+                    </div>
+                    </div>
+                </div>
+                <div class="user-info-compact">
+                    <div class="friends-code-label">Your friend code</div>
+                    <div class="friends-header-caption">Share this code to let other players add you instantly.</div>
+                    <div class="code-display">
+                        <span class="code-text" id="user-friend-code">(login required)</span>
+                        <button onclick="copyFriendCode()" class="copy-btn" aria-label="Copy friend code">
+                            <span class="copy-icon">📋</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Friend Section -->
+            <div class="add-friend-section">
+                <div class="add-friend-copy">
+                    <div class="add-friend-title">Add a friend</div>
+                    <div class="friend-hint">Paste a friend code below to send a request.</div>
+                </div>
+                <div class="add-friend-form">
+                    <input type="text" id="add-friend-uid" placeholder="Enter friend code" class="friend-input">
+                    <button onclick="addFriend()" class="primary-btn">Add Friend</button>
+                </div>
+                <div id="add-friend-status" class="status-message"></div>
+            </div>
+
+            <!-- Friends Lists in Compact Grid -->
+            <div class="friends-lists-grid">
+                <!-- Friends List -->
+                <div class="friend-card friends-list-card">
+                    <div class="card-header">
+                        <div class="card-icon">🤝</div>
+                        <div class="card-copy">
+                            <h3>Friends</h3>
+                            <div class="card-subtitle">Your current squad and quick actions.</div>
+                        </div>
+                        <div class="card-count" id="friends-card-count">0</div>
+                    </div>
+                    <div class="friends-list-container">
+                        <ul id="friends-list" class="friends-list">
+                            <li class="empty-state">
+                                <div class="empty-icon">🐠</div>
+                                <div class="empty-text">No friends yet</div>
+                                <div class="empty-subtext">Add some friends to start dueling!</div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Duels List -->
+                <div class="friend-card duels-list-card">
+                    <div class="card-header">
+                        <div class="card-icon">⚔️</div>
+                        <div class="card-copy">
+                            <h3>Duel Board</h3>
+                            <div class="card-subtitle">Challenges, active runs, and final results.</div>
+                        </div>
+                        <div class="card-count" id="duels-card-count">0</div>
+                    </div>
+                    <div class="friends-list-container">
+                        <ul id="duels-list" class="friends-list">
+                            <li class="empty-state">
+                                <div class="empty-icon">🦈</div>
+                                <div class="empty-text">No duels yet</div>
+                                <div class="empty-subtext">Use the Duel button on a friend card to start a shark guessing battle.</div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Requests List -->
+                <div class="friend-card requests-list-card">
+                    <div class="card-header">
+                        <div class="card-icon">📬</div>
+                        <div class="card-copy">
+                            <h3>Requests</h3>
+                            <div class="card-subtitle">Incoming invites that are waiting on you.</div>
+                        </div>
+                        <div class="card-count" id="requests-card-count">0</div>
+                    </div>
+                    <div class="friends-list-container">
+                        <ul id="requests-list" class="friends-list">
+                            <li class="empty-state">
+                                <div class="empty-icon">📭</div>
+                                <div class="empty-text">No requests</div>
+                                <div class="empty-subtext">Share your friend code to get requests!</div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div style="margin: 20px 0; border-top: 1px solid #ddd; padding-top: 20px;">
@@ -236,25 +416,191 @@
 </div>
 </div>
 
+<!-- Friend Profile Modal -->
+<div id="friendProfileModal" class="modal hidden">
+    <div class="modal-content" style="width: 95%; max-width: 500px; max-height: 80vh; overflow-y: auto;">
+        <div id="friend-profile-hero-card" class="profile-hero-card friend-profile-hero theme-default" style="gap: 12px; margin-bottom: 20px;">
+            <img id="friend-profile-pic" src="images/pfp/shark1.png" alt="Profile" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover;">
+            <div class="profile-identity-block">
+                <div class="profile-name-cluster">
+                    <h2 id="friend-profile-username" style="margin: 0; font-size: 24px;">Username</h2>
+                    <span id="friend-profile-leaderboard-badge" class="profile-leaderboard-badge hidden"></span>
+                </div>
+                <p id="friend-profile-uid" style="margin: 5px 0 0 0; color: #888; font-size: 12px;">UID</p>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;">
+            <div class="stat-card">
+                <div class="stat-label">Total Guesses</div>
+                <div class="stat-value" id="friend-profile-total-guesses">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Games Played</div>
+                <div class="stat-value" id="friend-profile-games">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Wins</div>
+                <div class="stat-value" id="friend-profile-wins">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Losses</div>
+                <div class="stat-value" id="friend-profile-losses">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Avg Guesses</div>
+                <div class="stat-value" id="friend-profile-avg">0.00</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Best Game</div>
+                <div class="stat-value" id="friend-profile-best">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Current Streak</div>
+                <div class="stat-value" id="friend-profile-current">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Highest Streak</div>
+                <div class="stat-value" id="friend-profile-highest">0</div>
+            </div>
+        </div>
+
+        <button onclick="closeFriendProfileModal()" style="width: 100%; padding: 12px; background: #ccc; color: #333; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Close</button>
+    </div>
+</div>
+
+<div id="friendDuelModal" class="modal hidden">
+    <div class="modal-content duel-modal-content" style="width: 95%; max-width: 900px; max-height: 88vh; overflow-y: auto;">
+        <div class="duel-modal-shell">
+            <div class="duel-modal-topbar">
+                <div>
+                    <div class="duel-kicker">Friend Duel</div>
+                    <h2 id="duel-title" class="duel-title">Shark Showdown</h2>
+                    <p id="duel-subtitle" class="duel-subtitle">Same shark. Fastest solve wins.</p>
+                </div>
+                <button onclick="closeFriendDuelModal()" class="duel-close-btn">Close</button>
+            </div>
+
+            <div class="duel-overview-strip">
+                <div class="duel-overview-card">
+                    <div class="duel-overview-label">Win Condition</div>
+                    <div class="duel-overview-value">Solve in fewer guesses</div>
+                </div>
+                <div class="duel-overview-card">
+                    <div class="duel-overview-label">Tiebreak</div>
+                    <div class="duel-overview-value">Same guesses = draw</div>
+                </div>
+                <div class="duel-overview-card">
+                    <div class="duel-overview-label">Pressure</div>
+                    <div class="duel-overview-value">12 guesses max</div>
+                </div>
+            </div>
+
+            <div class="duel-versus-row">
+                <div id="duel-self-card" class="duel-player-card">
+                    <img id="duel-self-pic" src="images/pfp/shark1.png" alt="You" class="duel-player-avatar">
+                    <div>
+                        <div class="duel-player-label">You</div>
+                        <div id="duel-self-name" class="duel-player-name">Player</div>
+                    </div>
+                </div>
+                <div class="duel-versus-badge">VS</div>
+                <div id="duel-opponent-card" class="duel-player-card">
+                    <img id="duel-opponent-pic" src="images/pfp/shark1.png" alt="Opponent" class="duel-player-avatar">
+                    <div>
+                        <div class="duel-player-label">Opponent</div>
+                        <div id="duel-opponent-name" class="duel-player-name">Rival</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="duel-status-grid">
+                <div class="duel-status-card">
+                    <div class="duel-status-label">Your Status</div>
+                    <div id="duel-self-status" class="duel-status-value">Awaiting move</div>
+                </div>
+                <div class="duel-status-card">
+                    <div class="duel-status-label">Opponent Status</div>
+                    <div id="duel-opponent-status" class="duel-status-value">Awaiting move</div>
+                </div>
+                <div class="duel-status-card">
+                    <div class="duel-status-label">Attempts Left</div>
+                    <div id="duel-attempts-left" class="duel-status-value">12</div>
+                </div>
+                <div class="duel-status-card">
+                    <div class="duel-status-label">Your Guesses</div>
+                    <div id="duel-self-guess-count" class="duel-status-value">0</div>
+                </div>
+                <div class="duel-status-card">
+                    <div class="duel-status-label">Opponent Guesses</div>
+                    <div id="duel-opponent-guess-count" class="duel-status-value">0</div>
+                </div>
+                <div class="duel-status-card">
+                    <div class="duel-status-label">Result</div>
+                    <div id="duel-result" class="duel-status-value">Battle in progress</div>
+                </div>
+            </div>
+
+            <div id="duel-message" class="duel-message">Read the board, make your guess, and keep the guess count low.</div>
+            <div id="duel-live-note" class="duel-live-note">The board refreshes live as the duel moves.</div>
+
+            <div id="duel-input-area" class="duel-input-area">
+                <div class="duel-input-stack">
+                    <input type="text" id="duel-guess-input" class="friend-input duel-guess-input" placeholder="Type a shark name..." autocomplete="off" spellcheck="false">
+                    <div id="duel-suggestions" class="duel-suggestions hidden"></div>
+                </div>
+                <button onclick="submitDuelGuess()" class="primary-btn">Submit Guess</button>
+            </div>
+
+            <div class="duel-board-header">
+                <div>
+                    <div class="duel-board-kicker">Your Board</div>
+                    <div class="duel-board-title">Guess History</div>
+                </div>
+            </div>
+
+            <div id="duel-guesses" class="duel-guesses-board"></div>
+        </div>
+    </div>
+</div>
+
+
+
 <!-- Profile Picture Modal -->
 <div id="profilePicModal" class="modal hidden">
-<div class="modal-content" style="width: 95%; max-width: 800px; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column;">
+<div class="modal-content picker-modal-content profile-pic-modal-content" style="width: 95%; max-width: 800px; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column;">
+<div class="picker-modal-heading">
+<div class="picker-modal-kicker">Cosmetics</div>
 <h2 style="margin-top: 0; margin-bottom: 20px;">Choose Profile Picture</h2>
+</div>
 
-<div style="margin: 10px 0; flex: 1; min-height: 0;">
+<div class="picker-section" style="margin: 10px 0; flex: 1; min-height: 0;">
 <h3 style="font-size: 16px; margin-bottom: 12px;">🎨 Available Profile Pictures</h3>
 <div class="avatar-selector" id="available-pfps" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(95px, 1fr)); gap: 12px; margin: 10px 0; padding: 8px;">
 </div>
 </div>
 
-<div style="margin: 15px 0; border-top: 1px solid #444; padding-top: 15px; flex: 1; min-height: 0;">
-<h3 style="font-size: 16px; margin-bottom: 12px;">🏆 Shark Pass Cosmetics</h3>
+<div class="picker-section picker-section-earned" style="margin: 15px 0; border-top: 1px solid #444; padding-top: 15px; flex: 1; min-height: 0;">
+<h3 style="font-size: 16px; margin-bottom: 12px;">🏆 Shark Pass Profile Pictures</h3>
 <div class="avatar-selector" id="earned-pfps" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(95px, 1fr)); gap: 12px; margin: 10px 0; padding: 8px;">
 </div>
 <p id="no-earned" style="text-align: center; color: #888; font-size: 14px; margin: 15px 0;">No cosmetics earned yet. Check Shark Pass for rewards!</p>
 </div>
 
 <button onclick="closeProfilePicModal()" style="width: 100%; padding: 10px; margin-top: 12px; background: #ccc; color: #333; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; flex-shrink: 0;">Close</button>
+</div>
+</div>
+
+<!-- Badge Modal -->
+<div id="badgeModal" class="modal hidden">
+<div class="modal-content picker-modal-content badge-picker-modal-content" style="width: 95%; max-width: 640px; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column;">
+<div class="picker-modal-heading">
+<div class="picker-modal-kicker">Cosmetics</div>
+<h2 style="margin-top: 0; margin-bottom: 12px;">Choose Badge</h2>
+</div>
+<p style="color: #888; font-size: 14px; margin-bottom: 18px;">Equip a badge for your profile.</p>
+<div id="badge-select-container" class="profile-cosmetic-row badge-select-grid" style="max-height: 56vh; overflow-y: auto; padding-right: 4px;"></div>
+<button onclick="closeBadgeModal()" style="width: 100%; padding: 10px; margin-top: 16px; background: #ccc; color: #333; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; flex-shrink: 0;">Close</button>
 </div>
 </div>
 
@@ -272,6 +618,86 @@
 </div>
 
 <button onclick="closeDailyLoginModal()" style="width: 100%; padding: 12px; background: #ccc; color: #333; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">Close</button>
+</div>
+</div>
+
+<div id="cratesModal" class="modal hidden">
+<div class="modal-content picker-modal-content crates-modal-content" style="width: 95%; max-width: 860px; max-height: 88vh; overflow-y: auto; display: flex; flex-direction: column;">
+<div class="picker-modal-heading">
+<div class="picker-modal-kicker">Cosmetics</div>
+<h2>Crates</h2>
+<p>Win games for a 35% shot at earning a crate, then open them here for profile pictures, badges, and themes.</p>
+</div>
+
+<div class="crates-layout">
+<section class="picker-section crate-inventory-panel">
+<div class="crate-panel-topline">
+<div>
+<h3>Cosmetic Crate</h3>
+</div>
+<button class="crate-inspect-btn" onclick="openCrateDropsModal()" aria-label="View possible drops">
+<i class="fa-solid fa-eye"></i>
+</button>
+<div class="crate-count-badge"><span id="crate-count-value">0</span> ready</div>
+</div>
+<div class="crate-showcase">
+<div class="crate-visual">
+<i class="fa-solid fa-box-open"></i>
+</div>
+<div class="crate-odds">
+<div class="crate-odds-row"><span>Common</span><strong>58%</strong></div>
+<div class="crate-odds-row"><span>Rare</span><strong>28%</strong></div>
+<div class="crate-odds-row"><span>Epic</span><strong>10%</strong></div>
+<div class="crate-odds-row"><span>Legendary</span><strong>4%</strong></div>
+</div>
+</div>
+<div class="crate-action-row">
+<button id="open-crate-btn" class="primary-btn crate-open-btn" onclick="openCrate('reef')">Open Cosmetic Crate</button>
+<div id="crate-status-copy" class="crate-status-copy"></div>
+</div>
+<div class="crate-settings-row">
+<label class="crate-toggle" for="crate-instant-toggle">
+<input id="crate-instant-toggle" type="checkbox" onchange="toggleCrateInstantOpen(this.checked)">
+<span class="crate-toggle-slider" aria-hidden="true"></span>
+<span class="crate-toggle-copy">
+<strong>Instant open</strong>
+<small>Skip the crate animation.</small>
+</span>
+</label>
+<div id="crate-pity-copy" class="crate-pity-copy"></div>
+</div>
+</section>
+
+</div>
+
+<button onclick="closeCratesModal()" style="width: 100%; padding: 10px; margin-top: 16px; background: #ccc; color: #333; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; flex-shrink: 0;">Close</button>
+</div>
+</div>
+
+<div id="crateDropsModal" class="modal hidden">
+<div class="modal-content picker-modal-content crate-drops-modal-content" style="width: 95%; max-width: 860px; max-height: 88vh; overflow-y: auto; display: flex; flex-direction: column;">
+<div class="picker-modal-heading">
+<div class="picker-modal-kicker">Crate Intel</div>
+<h2>Possible Drops</h2>
+<p>If you pull something you already own, it converts into XP based on rarity.</p>
+</div>
+<section class="picker-section crate-rewards-panel">
+<div id="crate-drops-grid" class="crate-reward-grid"></div>
+</section>
+<button onclick="closeCrateDropsModal()" style="width: 100%; padding: 10px; margin-top: 16px; background: #ccc; color: #333; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; flex-shrink: 0;">Close</button>
+</div>
+</div>
+
+<div id="crateUnboxOverlay" class="crate-unbox-overlay hidden">
+<div class="crate-unbox-backdrop"></div>
+<div class="crate-unbox-stage">
+<div id="crate-unbox-burst" class="crate-unbox-burst"></div>
+<div id="crate-unbox-crate" class="crate-unbox-crate">
+<div class="crate-unbox-crate-lid"></div>
+<div class="crate-unbox-crate-body"><i class="fa-solid fa-box-open"></i></div>
+</div>
+<div id="crate-unbox-copy" class="crate-unbox-copy">The cosmetic crate is opening...</div>
+<div id="crate-overlay-reveal" class="crate-overlay-reveal hidden"></div>
 </div>
 </div>
 
@@ -294,5 +720,3 @@ if (window.location.search.includes('openModal=true')) {
 </body>
 </html>
 
-
-<!-- Easter Egg Hunt: Egg 1 will be injected here by script.js -->
