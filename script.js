@@ -2902,12 +2902,12 @@ async function updateAuthUI() {
         // Load user profile - need to await so redeemed codes and login streak load first
         await loadUserProfile();
         scheduleCloudProfileReloads();
+        // Initialize daily login first so streak/login fields are updated before any broad stats sync.
+        await initializeDailyLogin();
         await ensureLoginStreakRewards();
         ensureNavProfileButton();
-        // Sync local stats to Firebase
+        // Sync local stats to Firebase after daily login initialization to avoid stale login-field overwrites.
         syncStatsToFirebase();
-        // Initialize daily login - this will use the loaded streak data
-        await initializeDailyLogin();
     } else {
         // User is logged out
         if (loginWarning) loginWarning.classList.remove("hidden");
@@ -3167,6 +3167,19 @@ function getCalendarDayDifference(fromDateKey, toDateKey) {
     return Math.round((toUtc - fromUtc) / 86400000);
 }
 
+function getLocalMonthKey(dateValue = new Date()) {
+    const normalizedDate = normalizeStoredDateValue(dateValue);
+    return normalizedDate ? normalizedDate.slice(0, 7) : "";
+}
+
+function normalizeStoredMonthValue(rawValue) {
+    if (typeof rawValue === "string" && /^\d{4}-\d{2}$/.test(rawValue.trim())) {
+        return rawValue.trim();
+    }
+    const normalizedDate = normalizeStoredDateValue(rawValue);
+    return normalizedDate ? normalizedDate.slice(0, 7) : "";
+}
+
 async function getUserStatsSnapshot(statsRef) {
     try {
         const snapshot = await statsRef.get({ source: "server" });
@@ -3417,25 +3430,17 @@ async function loadUserProfile(options = {}) {
             // Load login streak data from Firebase
             if (firebaseData.loginStreak !== undefined) {
                 localStorage.setItem("loginStreak", firebaseData.loginStreak);
-            } else {
-                localStorage.removeItem("loginStreak");
             }
             const normalizedLastLoginDate = normalizeStoredDateValue(firebaseData.lastLoginDate);
             if (normalizedLastLoginDate) {
                 localStorage.setItem("lastLoginDate", normalizedLastLoginDate);
-            } else {
-                localStorage.removeItem("lastLoginDate");
             }
             if (firebaseData.currentLoginDay !== undefined) {
                 localStorage.setItem("currentLoginDay", firebaseData.currentLoginDay);
-            } else {
-                localStorage.removeItem("currentLoginDay");
             }
             const normalizedModalShownDate = normalizeStoredDateValue(firebaseData.dailyLoginModalShownToday);
             if (normalizedModalShownDate) {
                 localStorage.setItem(getDailyLoginModalShownStorageKey(currentUser.uid), normalizedModalShownDate);
-            } else {
-                localStorage.removeItem(getDailyLoginModalShownStorageKey(currentUser.uid));
             }
             // Merge achievements instead of letting a stale Firestore snapshot clear local claims.
             const mergedClaimedAchievements = getMergedUniqueIds(
@@ -4645,6 +4650,27 @@ async function syncStatsToFirebase() {
             crateInventory: normalizeCrateInventory(mergedProfile.crateInventory),
             lastUpdated: new Date()
         };
+
+        const currentWins = Number(mergedProfile.wins) || 0;
+        const remoteWins = Number(remoteData.wins) || 0;
+        const winsDelta = Math.max(0, currentWins - remoteWins);
+        const todayKey = getLocalDateKey();
+        const monthKey = getLocalMonthKey(todayKey);
+        const remoteDailyWinsDate = normalizeStoredDateValue(remoteData.dailyWinsDate);
+        const remoteMonthlyWinsKey = normalizeStoredMonthValue(remoteData.monthlyWinsKey);
+        const remoteDailyWins = Number(remoteData.dailyWins) || 0;
+        const remoteMonthlyWins = Number(remoteData.monthlyWins) || 0;
+
+        let nextDailyWins = remoteDailyWinsDate === todayKey ? remoteDailyWins + winsDelta : winsDelta;
+        let nextMonthlyWins = remoteMonthlyWinsKey === monthKey ? remoteMonthlyWins + winsDelta : winsDelta;
+        if (!Number.isFinite(nextDailyWins) || nextDailyWins < 0) nextDailyWins = 0;
+        if (!Number.isFinite(nextMonthlyWins) || nextMonthlyWins < 0) nextMonthlyWins = 0;
+
+        stats.dailyWins = nextDailyWins;
+        stats.dailyWinsDate = todayKey;
+        stats.monthlyWins = nextMonthlyWins;
+        stats.monthlyWinsKey = monthKey;
+
         Object.assign(stats, buildCosmeticSyncPayload(mergedProfile));
         
         // shark pass related values
@@ -5456,6 +5482,47 @@ async function skipLoginDay(days = 1) {
     }
 }
 
+async function simulateNextLoginDay() {
+    if (!firebase.auth().currentUser || !isDeveloperUid(firebase.auth().currentUser.uid)) {
+        console.log("❌ Access denied. This command is for developers only.");
+        return;
+    }
+    if (!currentUser) {
+        console.log("❌ Error: User must be logged in");
+        return;
+    }
+
+    try {
+        const simulatedLastLogin = new Date();
+        simulatedLastLogin.setHours(12, 0, 0, 0);
+        simulatedLastLogin.setDate(simulatedLastLogin.getDate() - 1);
+        const simulatedLastLoginDate = getLocalDateKey(simulatedLastLogin);
+        if (!simulatedLastLoginDate) {
+            console.log("❌ Could not generate a valid simulated login date.");
+            return;
+        }
+
+        localStorage.setItem("lastLoginDate", simulatedLastLoginDate);
+        localStorage.removeItem(getDailyLoginModalShownStorageKey());
+
+        await db.collection("userStats").doc(currentUser.uid).set({
+            lastLoginDate: simulatedLastLoginDate,
+            dailyLoginModalShownToday: ""
+        }, { merge: true });
+
+        await initializeDailyLogin();
+        await loadUserProfile();
+
+        const currentLoginDay = parseInt(localStorage.getItem("currentLoginDay")) || 1;
+        const loginStreak = parseInt(localStorage.getItem("loginStreak")) || 1;
+        console.log("✅ Simulated a consecutive login day.");
+        console.log(`   lastLoginDate set to ${simulatedLastLoginDate}`);
+        console.log(`   Post-check login day: ${currentLoginDay}, login streak: ${loginStreak}`);
+    } catch (error) {
+        console.error("❌ Error simulating next login day:", error);
+    }
+}
+
 // Bulk add function for quick testing
 async function addTestStats() {
     if (!firebase.auth().currentUser || !isDeveloperUid(firebase.auth().currentUser.uid)) {
@@ -5625,6 +5692,7 @@ function showCommands() {
     console.log("addLoss() - Add 1 loss");
     console.log("addGuesses(10) - Add guesses");
     console.log("addLoginDays(7) - Add login days/streak and test login rewards");
+    console.log("simulateNextLoginDay() - Simulate logging in the day after your last login");
     console.log("skipLoginDay(1) - Simulate missing 1 day and re-run daily login logic");
     console.log("addCrates(3) - Add Cosmetic Crates for testing");
     console.log("addTestStats() - Quick test add (500 XP, 10 wins, 5 losses, 15 games, 75 guesses)");
