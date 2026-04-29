@@ -32,6 +32,10 @@ function upsertDuelRecord(duels, duel) {
     return list;
 }
 
+function removeDuelRecord(duels, duelId) {
+    return normalizeDuelsList(duels).filter(entry => entry?.id !== duelId);
+}
+
 async function getFriendNetworkData(uid) {
     const ref = getFriendDocumentRef(uid);
     if (!ref) return { friends: [], friendRequests: [], duels: [] };
@@ -483,6 +487,7 @@ async function renderDuelsList(duels) {
                 <button onclick="event.stopPropagation(); openFriendDuelModal('${duel.id}')" class="action-btn view-btn">Open</button>
                 ${isIncoming ? `<button onclick="event.stopPropagation(); acceptFriendDuel('${duel.id}')" class="action-btn accept-btn">Accept</button>` : ''}
                 ${isIncoming ? `<button onclick="event.stopPropagation(); declineFriendDuel('${duel.id}')" class="action-btn decline-btn">Decline</button>` : ''}
+                ${duel.status === 'completed' ? `<button onclick="event.stopPropagation(); removeCompletedDuelFromMyList('${duel.id}')" class="action-btn remove-btn">Remove</button>` : ''}
             </div>
         `;
         list.appendChild(item);
@@ -783,6 +788,50 @@ window.declineFriendDuel = async function(duelId) {
     } catch (error) {
         console.error('Failed to decline duel:', error);
         showNotification('Could not decline duel right now.', 'error', 3500);
+    }
+};
+
+window.removeCompletedDuelFromMyList = async function(duelId) {
+    if (!currentUser || !db || !duelId) return;
+    try {
+        const data = await getFriendNetworkData(currentUser.uid);
+        const duels = normalizeDuelsList(data.duels);
+        const duel = duels.find(entry => entry?.id === duelId);
+
+        if (!duel) {
+            if (currentOpenDuelId === duelId) {
+                closeFriendDuelModal();
+            }
+            showNotification('This duel is already removed from your list.', 'info', 2600);
+            return;
+        }
+
+        if (duel.status !== 'completed') {
+            showNotification('You can only remove completed duels.', 'info', 3000);
+            return;
+        }
+
+        const ref = getFriendDocumentRef(currentUser.uid);
+        if (!ref) return;
+
+        const nextDuels = removeDuelRecord(duels, duelId);
+        await ref.set({ duels: nextDuels }, { merge: true });
+        activeDuelsCache = nextDuels;
+
+        if (currentOpenDuelId === duelId) {
+            closeFriendDuelModal();
+        }
+
+        const duelsCountEl = document.getElementById('duels-count');
+        const duelsCardCountEl = document.getElementById('duels-card-count');
+        if (duelsCountEl) duelsCountEl.textContent = String(activeDuelsCache.length);
+        if (duelsCardCountEl) duelsCardCountEl.textContent = String(activeDuelsCache.length);
+
+        await renderDuelsList(activeDuelsCache);
+        showNotification('Duel removed from your list.', 'success', 2600);
+    } catch (error) {
+        console.error('Failed to remove duel from personal list:', error);
+        showNotification('Could not remove duel right now.', 'error', 3400);
     }
 };
 
@@ -3953,10 +4002,6 @@ function logoutUser() {
     });
 }
 
-async function manualLoadCloudStats() {
-    await loadCloudStats({ manual: true, showSuccessToast: true });
-}
-
 function openLoginModal() {
     document.getElementById("loginModal").classList.remove("hidden");
 }
@@ -4670,13 +4715,9 @@ async function syncStatsToFirebase() {
 
         if (!hasWinPeriodV2) {
             // Legacy rows may have seeded period wins from all-time totals.
-            // If that pattern appears, reset the period baseline and let new wins rebuild naturally.
-            if (!hasReliableRemoteWins || (remoteDailyWinsDate === todayKey && remoteDailyWins >= currentWins && currentWins >= 5)) {
-                dailyBaseWins = 0;
-            }
-            if (!hasReliableRemoteWins || (remoteMonthlyWinsKey === monthKey && remoteMonthlyWins >= currentWins && currentWins >= 10)) {
-                monthlyBaseWins = 0;
-            }
+            // Reset period baselines and rebuild from new wins only.
+            dailyBaseWins = 0;
+            monthlyBaseWins = 0;
         }
 
         let nextDailyWins = dailyBaseWins + winsDelta;
