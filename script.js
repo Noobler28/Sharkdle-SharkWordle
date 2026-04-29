@@ -4652,7 +4652,9 @@ async function syncStatsToFirebase() {
         };
 
         const currentWins = Number(mergedProfile.wins) || 0;
-        const remoteWins = Number(remoteData.wins) || 0;
+        const remoteWinsParsed = Number(remoteData.wins);
+        const hasReliableRemoteWins = Number.isFinite(remoteWinsParsed);
+        const remoteWins = hasReliableRemoteWins ? remoteWinsParsed : currentWins;
         const winsDelta = Math.max(0, currentWins - remoteWins);
         const todayKey = getLocalDateKey();
         const monthKey = getLocalMonthKey(todayKey);
@@ -4660,16 +4662,35 @@ async function syncStatsToFirebase() {
         const remoteMonthlyWinsKey = normalizeStoredMonthValue(remoteData.monthlyWinsKey);
         const remoteDailyWins = Number(remoteData.dailyWins) || 0;
         const remoteMonthlyWins = Number(remoteData.monthlyWins) || 0;
+        const remoteWinPeriodVersion = Number(remoteData.winPeriodVersion) || 0;
+        const hasWinPeriodV2 = remoteWinPeriodVersion >= 2;
 
-        let nextDailyWins = remoteDailyWinsDate === todayKey ? remoteDailyWins + winsDelta : winsDelta;
-        let nextMonthlyWins = remoteMonthlyWinsKey === monthKey ? remoteMonthlyWins + winsDelta : winsDelta;
+        let dailyBaseWins = remoteDailyWinsDate === todayKey ? remoteDailyWins : 0;
+        let monthlyBaseWins = remoteMonthlyWinsKey === monthKey ? remoteMonthlyWins : 0;
+
+        if (!hasWinPeriodV2) {
+            // Legacy rows may have seeded period wins from all-time totals.
+            // If that pattern appears, reset the period baseline and let new wins rebuild naturally.
+            if (!hasReliableRemoteWins || (remoteDailyWinsDate === todayKey && remoteDailyWins >= currentWins && currentWins >= 5)) {
+                dailyBaseWins = 0;
+            }
+            if (!hasReliableRemoteWins || (remoteMonthlyWinsKey === monthKey && remoteMonthlyWins >= currentWins && currentWins >= 10)) {
+                monthlyBaseWins = 0;
+            }
+        }
+
+        let nextDailyWins = dailyBaseWins + winsDelta;
+        let nextMonthlyWins = monthlyBaseWins + winsDelta;
         if (!Number.isFinite(nextDailyWins) || nextDailyWins < 0) nextDailyWins = 0;
         if (!Number.isFinite(nextMonthlyWins) || nextMonthlyWins < 0) nextMonthlyWins = 0;
+        if (nextDailyWins > currentWins) nextDailyWins = currentWins;
+        if (nextMonthlyWins > currentWins) nextMonthlyWins = currentWins;
 
         stats.dailyWins = nextDailyWins;
         stats.dailyWinsDate = todayKey;
         stats.monthlyWins = nextMonthlyWins;
         stats.monthlyWinsKey = monthKey;
+        stats.winPeriodVersion = 2;
 
         Object.assign(stats, buildCosmeticSyncPayload(mergedProfile));
         
