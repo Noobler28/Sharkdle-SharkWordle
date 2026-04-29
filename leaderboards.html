@@ -904,9 +904,9 @@ h1{
                     <th>Profile</th>
                     <th>Username</th>
                     <th id="wins-header">Wins</th>
-                    <th>Level</th>
-                    <th>Streak</th>
-                    <th>Games</th>
+                    <th id="level-header">Level</th>
+                    <th id="streak-header">Streak</th>
+                    <th id="games-header">Games</th>
                 </tr>
             </thead>
             <tbody id="leaderboard-body">
@@ -1072,10 +1072,17 @@ h1{
         function updateLeaderboardRangeUI(rangeKey = selectedLeaderboardRange) {
             const config = getRangeConfig(rangeKey);
             const winsHeader = document.getElementById("wins-header");
+            const levelHeader = document.getElementById("level-header");
+            const streakHeader = document.getElementById("streak-header");
+            const gamesHeader = document.getElementById("games-header");
             const primaryRankValue = document.getElementById("primary-rank-value");
             const subtitle = document.getElementById("leaderboard-subtitle");
             const boardSizeValue = document.getElementById("board-size-value");
             if (winsHeader) winsHeader.textContent = config.metricHeader;
+            const isAllTimeRange = config.id === "all_time";
+            if (levelHeader) levelHeader.textContent = isAllTimeRange ? "Level" : "Level (AT)";
+            if (streakHeader) streakHeader.textContent = isAllTimeRange ? "Streak" : "Streak (AT)";
+            if (gamesHeader) gamesHeader.textContent = isAllTimeRange ? "Games" : "Games (AT)";
             if (primaryRankValue) primaryRankValue.textContent = config.primaryRankLabel;
             if (subtitle) subtitle.textContent = config.subtitle;
             if (boardSizeValue) boardSizeValue.textContent = `Top ${LEADERBOARD_LIMIT}`;
@@ -1089,15 +1096,23 @@ h1{
         function getLeaderboardMetricValue(data, rangeKey) {
             const config = getRangeConfig(rangeKey);
             const metricValue = Number(data?.[config.metricField]) || 0;
+            const totalWins = Number(data?.wins) || 0;
+            const winPeriodVersion = Number(data?.winPeriodVersion) || 0;
             if (config.id === "daily") {
                 const todayKey = getLocalDateKey();
                 const dailyDate = normalizeStoredDateValue(data?.dailyWinsDate);
-                return dailyDate === todayKey ? metricValue : 0;
+                if (dailyDate !== todayKey) return 0;
+                // Hide legacy-seeded daily totals that mirror all-time wins.
+                if (winPeriodVersion < 2 && totalWins >= 5 && metricValue >= totalWins) return 0;
+                return metricValue;
             }
             if (config.id === "monthly") {
                 const monthKey = getCurrentMonthKey();
                 const monthlyKey = normalizeStoredMonthValue(data?.monthlyWinsKey);
-                return monthlyKey === monthKey ? metricValue : 0;
+                if (monthlyKey !== monthKey) return 0;
+                // Hide legacy-seeded monthly totals that mirror all-time wins.
+                if (winPeriodVersion < 2 && totalWins >= 10 && metricValue >= totalWins) return 0;
+                return metricValue;
             }
             return metricValue;
         }
