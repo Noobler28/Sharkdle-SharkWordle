@@ -173,6 +173,50 @@ font-weight:800;
 color:#f4fdff;
 }
 
+.leaderboard-stat-board{
+min-width:300px;
+}
+
+.leaderboard-range-label{
+font-size:10px;
+text-transform:uppercase;
+letter-spacing:0.08em;
+color:rgba(156,239,255,0.66);
+font-weight:700;
+margin-top:8px;
+margin-bottom:6px;
+}
+
+.leaderboard-range-toggle{
+display:flex;
+gap:6px;
+flex-wrap:wrap;
+}
+
+.leaderboard-range-btn{
+border:1px solid rgba(77,208,225,0.32);
+background:rgba(7,35,52,0.76);
+color:#d7fbff;
+font-size:12px;
+font-weight:700;
+padding:5px 10px;
+border-radius:999px;
+cursor:pointer;
+transition:all 0.2s ease;
+}
+
+.leaderboard-range-btn:hover{
+border-color:#7cf0ff;
+transform:translateY(-1px);
+}
+
+.leaderboard-range-btn.active{
+background:linear-gradient(135deg,#00b4d8,#4dd0e1);
+color:#062232;
+border-color:rgba(77,208,225,0.96);
+box-shadow:0 8px 18px rgba(0,180,216,0.26);
+}
+
 .leaderboard-table-shell{
 border-radius:22px;
 overflow:hidden;
@@ -567,6 +611,15 @@ box-shadow:0 20px 50px rgba(0,0,0,0.7);
     justify-content:flex-start;
 }
 
+.leaderboard-stat-board{
+    min-width:260px;
+}
+
+.leaderboard-range-btn{
+    font-size:11px;
+    padding:4px 9px;
+}
+
 h1{
     font-size:2rem;
 }
@@ -659,8 +712,22 @@ h1{
     flex:1 1 96px;
 }
 
+.leaderboard-stat-board{
+    min-width:100%;
+    flex:1 1 100%;
+}
+
 .leaderboard-stat-value{
     font-size:17px;
+}
+
+.leaderboard-range-toggle{
+    gap:4px;
+}
+
+.leaderboard-range-btn{
+    font-size:10px;
+    padding:4px 8px;
 }
 
 h1{
@@ -752,6 +819,11 @@ h1{
     width:100%;
 }
 
+.leaderboard-range-btn{
+    font-size:9px;
+    padding:4px 7px;
+}
+
 h1{
     font-size:1.16rem;
 }
@@ -803,16 +875,22 @@ h1{
             <div class="leaderboard-copy">
                 <div class="leaderboard-kicker">Competitive Waters</div>
                 <h1>Sharkdle Global Leaderboards</h1>
-                <div class="leaderboard-subtitle">View the TOP 25 sharkdle players. Can you reach number 1?</div>
+                <div class="leaderboard-subtitle" id="leaderboard-subtitle">View the TOP 25 Sharkdle players. Can you reach number 1?</div>
             </div>
             <div class="leaderboard-stats">
-                <div class="leaderboard-stat">
+                <div class="leaderboard-stat leaderboard-stat-board">
                     <div class="leaderboard-stat-label">Board Size</div>
-                    <div class="leaderboard-stat-value">Top 25</div>
+                    <div class="leaderboard-stat-value" id="board-size-value">Top 25</div>
+                    <div class="leaderboard-range-label">Range</div>
+                    <div class="leaderboard-range-toggle" id="leaderboard-range-toggle">
+                        <button type="button" class="leaderboard-range-btn" data-range="daily">Daily</button>
+                        <button type="button" class="leaderboard-range-btn" data-range="monthly">Monthly</button>
+                        <button type="button" class="leaderboard-range-btn active" data-range="all_time">All Time</button>
+                    </div>
                 </div>
                 <div class="leaderboard-stat">
                     <div class="leaderboard-stat-label">Primary Rank</div>
-                    <div class="leaderboard-stat-value">Wins</div>
+                    <div class="leaderboard-stat-value" id="primary-rank-value">Wins (All Time)</div>
                 </div>
             </div>
         </div>
@@ -825,7 +903,7 @@ h1{
                     <th>Rank</th>
                     <th>Profile</th>
                     <th>Username</th>
-                    <th>Wins</th>
+                    <th id="wins-header">Wins</th>
                     <th>Level</th>
                     <th>Streak</th>
                     <th>Games</th>
@@ -889,7 +967,157 @@ h1{
                 console.log("", e);
             }
         }
-        
+        const LEADERBOARD_LIMIT = 25;
+        const LEADERBOARD_QUERY_LIMIT = 200;
+        const leaderboardRangeConfig = {
+            daily: {
+                id: "daily",
+                label: "Daily",
+                orderField: "dailyWins",
+                metricField: "dailyWins",
+                metricHeader: "Daily Wins",
+                primaryRankLabel: "Daily Wins",
+                subtitle: "Top performers for today.",
+                emptyState: "No daily wins recorded yet today."
+            },
+            monthly: {
+                id: "monthly",
+                label: "Monthly",
+                orderField: "monthlyWins",
+                metricField: "monthlyWins",
+                metricHeader: "Monthly Wins",
+                primaryRankLabel: "Monthly Wins",
+                subtitle: "Top performers for this month.",
+                emptyState: "No monthly wins recorded yet."
+            },
+            all_time: {
+                id: "all_time",
+                label: "All Time",
+                orderField: "wins",
+                metricField: "wins",
+                metricHeader: "Wins",
+                primaryRankLabel: "Wins (All Time)",
+                subtitle: "View the TOP 25 Sharkdle players. Can you reach number 1?",
+                emptyState: "No leaderboard data yet."
+            }
+        };
+        let selectedLeaderboardRange = "all_time";
+
+        function getLocalDateKey(dateValue = new Date()) {
+            const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+            if (Number.isNaN(date.getTime())) return "";
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            const day = String(date.getDate()).padStart(2, "0");
+            return `${year}-${month}-${day}`;
+        }
+
+        function parseDateLikeValue(rawValue) {
+            if (rawValue === null || rawValue === undefined || rawValue === "") return null;
+            if (rawValue instanceof Date) return Number.isNaN(rawValue.getTime()) ? null : rawValue;
+            if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+                const numericDate = new Date(rawValue);
+                return Number.isNaN(numericDate.getTime()) ? null : numericDate;
+            }
+            if (typeof rawValue === "object") {
+                if (typeof rawValue.toDate === "function") {
+                    const timestampDate = rawValue.toDate();
+                    return timestampDate instanceof Date && !Number.isNaN(timestampDate.getTime()) ? timestampDate : null;
+                }
+                if (typeof rawValue.seconds === "number") {
+                    const millis = rawValue.seconds * 1000 + Math.floor((rawValue.nanoseconds || 0) / 1000000);
+                    const timestampDate = new Date(millis);
+                    return Number.isNaN(timestampDate.getTime()) ? null : timestampDate;
+                }
+                if (typeof rawValue._seconds === "number") {
+                    const millis = rawValue._seconds * 1000 + Math.floor((rawValue._nanoseconds || 0) / 1000000);
+                    const timestampDate = new Date(millis);
+                    return Number.isNaN(timestampDate.getTime()) ? null : timestampDate;
+                }
+                return null;
+            }
+            if (typeof rawValue !== "string") return null;
+            const value = rawValue.trim();
+            if (!value) return null;
+            if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                const [year, month, day] = value.split("-").map(Number);
+                return new Date(year, month - 1, day);
+            }
+            const parsedDate = new Date(value);
+            return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+        }
+
+        function normalizeStoredDateValue(rawValue) {
+            const parsedDate = parseDateLikeValue(rawValue);
+            return parsedDate ? getLocalDateKey(parsedDate) : "";
+        }
+
+        function normalizeStoredMonthValue(rawValue) {
+            if (typeof rawValue === "string" && /^\d{4}-\d{2}$/.test(rawValue.trim())) {
+                return rawValue.trim();
+            }
+            const normalizedDate = normalizeStoredDateValue(rawValue);
+            return normalizedDate ? normalizedDate.slice(0, 7) : "";
+        }
+
+        function getCurrentMonthKey() {
+            const today = getLocalDateKey();
+            return today ? today.slice(0, 7) : "";
+        }
+
+        function getRangeConfig(rangeKey = selectedLeaderboardRange) {
+            return leaderboardRangeConfig[rangeKey] || leaderboardRangeConfig.all_time;
+        }
+
+        function updateLeaderboardRangeUI(rangeKey = selectedLeaderboardRange) {
+            const config = getRangeConfig(rangeKey);
+            const winsHeader = document.getElementById("wins-header");
+            const primaryRankValue = document.getElementById("primary-rank-value");
+            const subtitle = document.getElementById("leaderboard-subtitle");
+            const boardSizeValue = document.getElementById("board-size-value");
+            if (winsHeader) winsHeader.textContent = config.metricHeader;
+            if (primaryRankValue) primaryRankValue.textContent = config.primaryRankLabel;
+            if (subtitle) subtitle.textContent = config.subtitle;
+            if (boardSizeValue) boardSizeValue.textContent = `Top ${LEADERBOARD_LIMIT}`;
+
+            const buttons = document.querySelectorAll(".leaderboard-range-btn");
+            buttons.forEach(button => {
+                button.classList.toggle("active", button.dataset.range === config.id);
+            });
+        }
+
+        function getLeaderboardMetricValue(data, rangeKey) {
+            const config = getRangeConfig(rangeKey);
+            const metricValue = Number(data?.[config.metricField]) || 0;
+            if (config.id === "daily") {
+                const todayKey = getLocalDateKey();
+                const dailyDate = normalizeStoredDateValue(data?.dailyWinsDate);
+                return dailyDate === todayKey ? metricValue : 0;
+            }
+            if (config.id === "monthly") {
+                const monthKey = getCurrentMonthKey();
+                const monthlyKey = normalizeStoredMonthValue(data?.monthlyWinsKey);
+                return monthlyKey === monthKey ? metricValue : 0;
+            }
+            return metricValue;
+        }
+
+        function setupLeaderboardRangeToggle() {
+            const buttons = document.querySelectorAll(".leaderboard-range-btn");
+            buttons.forEach(button => {
+                button.addEventListener("click", () => {
+                    const nextRange = button.dataset.range;
+                    if (!nextRange || nextRange === selectedLeaderboardRange) return;
+                    selectedLeaderboardRange = nextRange;
+                    updateLeaderboardRangeUI();
+                    loadLeaderboard(selectedLeaderboardRange);
+                });
+            });
+        }
+
+        setupLeaderboardRangeToggle();
+        updateLeaderboardRangeUI();
+
         // Wait for auth state before loading leaderboard
         auth.onAuthStateChanged(user => {
             if (user) {
@@ -899,7 +1127,7 @@ h1{
             }
             // Small delay to ensure Firebase auth state is fully ready
             setTimeout(() => {
-                loadLeaderboard();
+                loadLeaderboard(selectedLeaderboardRange);
             }, 300);
         });
 
@@ -911,19 +1139,25 @@ h1{
             document.getElementById('leaderboard-popup').style.display = 'none';
         }
 
-        async function loadLeaderboard() {
+        async function loadLeaderboard(rangeKey = selectedLeaderboardRange) {
+            selectedLeaderboardRange = rangeKey;
+            updateLeaderboardRangeUI(selectedLeaderboardRange);
+            const rangeConfig = getRangeConfig(selectedLeaderboardRange);
             const loadingDiv = document.getElementById('leaderboard-loading');
             const table = document.getElementById('leaderboard-table');
             const tbody = document.getElementById('leaderboard-body');
+            loadingDiv.style.display = '';
+            loadingDiv.textContent = 'Loading leaderboard...';
+            table.style.display = 'none';
             tbody.innerHTML = '';
             try {
-                // Get top 25 users by wins
+                const queryLimit = rangeConfig.id === "all_time" ? LEADERBOARD_LIMIT : LEADERBOARD_QUERY_LIMIT;
                 const snapshot = await db.collection('userStats')
-                    .orderBy('wins', 'desc')
-                    .limit(25)
+                    .orderBy(rangeConfig.orderField, 'desc')
+                    .limit(queryLimit)
                     .get();
                 if (snapshot.empty) {
-                    loadingDiv.textContent = 'No leaderboard data yet.';
+                    loadingDiv.textContent = rangeConfig.emptyState;
                     return;
                 }
                 
@@ -957,7 +1191,16 @@ h1{
                     { id: "aurora-fin", name: "Doubloon", emoji: "🪙", description: "A badge found in Cosmetic Crates." }
                 );
                 snapshot.forEach(doc => {
+                    if (rank > LEADERBOARD_LIMIT) return;
                     const data = doc.data();
+                    const totalWins = Number(data?.wins) || 0;
+                    if (totalWins <= 0) {
+                        return;
+                    }
+                    const metricValue = getLeaderboardMetricValue(data, selectedLeaderboardRange);
+                    if (selectedLeaderboardRange !== "all_time" && metricValue <= 0) {
+                        return;
+                    }
                     const tr = document.createElement('tr');
                     tr.classList.add(`lb-theme-${data.equippedCardTheme || 'default'}`);
                     // Check if this is the current user - use multiple methods including cached profile
@@ -1117,7 +1360,7 @@ h1{
                         <td>${rankCell}</td>
                         <td>${profilePicImg}</td>
                         <td>${usernameDisplay}${badgeDisplay}</td> 
-                        <td class="leaderboard-metric">${data.wins || 0}</td>
+                        <td class="leaderboard-metric">${metricValue}</td>
                         <td class="leaderboard-metric">${data.currentLevel || 0}</td>
                         <td class="leaderboard-metric">${data.currentStreak || 0}</td>
                         <td class="leaderboard-metric">${data.gamesPlayed || 0}</td>
@@ -1132,13 +1375,17 @@ h1{
                     }
                     rank++;
                 });
+                if (rank === 1) {
+                    loadingDiv.textContent = rangeConfig.emptyState;
+                    return;
+                }
                 // Unlock Port Jackson Shark for top 3
                 const isTop3 = top3Users.some(u =>
                     (currentUserUID && u.uid === currentUserUID) ||
                     (currentUserEmail && u.email && u.email === currentUserEmail) ||
                     (currentUsername && u.username && u.username === currentUsername.toLowerCase())
                 );
-                if (isTop3 && currentUserUID) {
+                if (selectedLeaderboardRange === "all_time" && isTop3 && currentUserUID) {
                     const PORTJACKSON_PFP = {
                         name: "Port Jackson Shark",
                         imagePath: "images/leaderPfp/Shark19.png",
