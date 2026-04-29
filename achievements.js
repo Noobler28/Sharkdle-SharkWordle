@@ -303,6 +303,27 @@ function getCategoryAchievements(categoryKey) {
     return achievements.sort((a, b) => worldMapOrder.indexOf(a.id) - worldMapOrder.indexOf(b.id));
 }
 
+async function getAchievementFriendCount() {
+    if (!currentUser || !db) return 0;
+    try {
+        if (typeof getFriendNetworkData === "function") {
+            const networkData = await getFriendNetworkData(currentUser.uid);
+            return Array.isArray(networkData?.friends) ? networkData.friends.length : 0;
+        }
+        if (typeof ensureFriendDocument === "function") {
+            const networkData = await ensureFriendDocument(currentUser.uid);
+            return Array.isArray(networkData?.friends) ? networkData.friends.length : 0;
+        }
+        const collectionName = typeof FRIENDS_COLLECTION === "string" ? FRIENDS_COLLECTION : "friendNetwork";
+        const doc = await db.collection(collectionName).doc(currentUser.uid).get();
+        const data = doc.exists ? (doc.data() || {}) : {};
+        return Array.isArray(data.friends) ? data.friends.length : 0;
+    } catch (error) {
+        console.warn("Error loading friends count for achievements:", error);
+        return 0;
+    }
+}
+
 
 
 // Retroactively unlock achievements that players have already earned based on current stats
@@ -345,19 +366,14 @@ async function retroactivelyUnlockAchievements(profileData, unlockedAchievements
     }
     
     // Check friends milestones
-    if (currentUser && db) {
-        try {
-            const friendsData = await ensureFriendDocument(currentUser.uid);
-            const friendsCount = Array.isArray(friendsData.friends) ? friendsData.friends.length : 0;
-            achievementDefinitions.milestones.forEach(achievement => {
-                if (friendsCount >= achievement.milestone && !unlockedAchievements.includes(achievement.id)) {
-                    unlockedAchievements.push(achievement.id);
-                }
-            });
-        } catch (error) {
-            console.warn('Error checking friends achievements:', error);
+    const friendsCount = Number.isFinite(Number(profileData.friendsCount))
+        ? Number(profileData.friendsCount)
+        : await getAchievementFriendCount();
+    achievementDefinitions.milestones.forEach(achievement => {
+        if (friendsCount >= achievement.milestone && !unlockedAchievements.includes(achievement.id)) {
+            unlockedAchievements.push(achievement.id);
         }
-    }
+    });
 
     const duelGames = profileData.duelGames || 0;
     const duelWins = profileData.duelWins || 0;
@@ -427,6 +443,7 @@ async function loadAndDisplayAchievements() {
     let profileData = typeof window.getCurrentProfileData === "function"
         ? window.getCurrentProfileData()
         : JSON.parse(localStorage.getItem("userProfile") || "{}");
+    profileData.friendsCount = await getAchievementFriendCount();
     let unlockedAchievements = hydratedState.unlockedAchievements;
     
     // Remove old XP-based achievement IDs that no longer exist
@@ -625,6 +642,8 @@ function createAchievementCard(achievement, profileData, unlockedAchievements) {
             currentProgress = profileData.gamesPlayed || 0;
         } else if (achievement.id.includes('streak_')) {
             currentProgress = profileData.currentStreak || 0;
+        } else if (achievement.id.includes('friends_')) {
+            currentProgress = profileData.friendsCount || 0;
         }
         
         const progress = Math.min((currentProgress / achievement.milestone) * 100, 100);
