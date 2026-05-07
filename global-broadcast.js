@@ -14,6 +14,7 @@
     const INDEX_THEME_CONFIG_PATH = { collection: "globalConfig", doc: "indexTheme" };
     const MESSAGE_CACHE_KEY = "globalBroadcastMessageCache";
     const THEME_CACHE_KEY = "globalUiThemeCache";
+    const THEME_DISABLE_KEY = "disableSeasonalTheme";
     const THEME_IDS = ["default", "summer", "christmas", "halloween"];
     const THEME_CLASS_PREFIX = "global-ui-theme-";
     const STYLE_ID = "global-broadcast-style";
@@ -91,7 +92,17 @@
                 --global-theme-surface-border: rgba(77, 208, 225, 0.14);
             }
             body.${THEME_CLASS_PREFIX}summer {
-                --global-theme-body-bg: linear-gradient(135deg, #0a3a52, #0d6f86, #1a9ba5);
+                /* Summer Splash: add a subtle "sandy ocean floor" near the bottom */
+                --global-theme-body-bg:
+                    radial-gradient(1200px 260px at 35% 110%, rgba(255, 232, 182, 0.55) 0%, rgba(255, 232, 182, 0) 62%),
+                    radial-gradient(900px 220px at 78% 112%, rgba(228, 190, 118, 0.42) 0%, rgba(228, 190, 118, 0) 64%),
+                    linear-gradient(180deg,
+                        #0a3a52 0%,
+                        #0d6f86 52%,
+                        #1a9ba5 68%,
+                        #2fb3b0 74%,
+                        #cfa86e 86%,
+                        #b88950 100%);
                 --global-theme-navbar-bg: #0b3948;
                 --global-theme-surface-bg: linear-gradient(180deg, rgba(8, 52, 70, 0.95), rgba(11, 95, 118, 0.92));
                 --global-theme-surface-border: rgba(151, 245, 255, 0.3);
@@ -181,12 +192,22 @@
         return THEME_IDS.includes(normalized) ? normalized : "default";
     }
 
+    function shouldDisableSeasonalThemes() {
+        return localStorage.getItem(THEME_DISABLE_KEY) === "true";
+    }
+
     function applyGlobalTheme(themeId) {
         const normalizedThemeId = normalizeThemeId(themeId);
-        THEME_IDS.forEach(id => document.body.classList.remove(`${THEME_CLASS_PREFIX}${id}`));
-        document.body.classList.add(`${THEME_CLASS_PREFIX}${normalizedThemeId}`);
+        const appliedThemeId = (shouldDisableSeasonalThemes() && normalizedThemeId !== "default")
+            ? "default"
+            : normalizedThemeId;
+
+        // Always cache the remote theme id so the user can re-enable later.
         localStorage.setItem(THEME_CACHE_KEY, normalizedThemeId);
-        return normalizedThemeId;
+
+        THEME_IDS.forEach(id => document.body.classList.remove(`${THEME_CLASS_PREFIX}${id}`));
+        document.body.classList.add(`${THEME_CLASS_PREFIX}${appliedThemeId}`);
+        return appliedThemeId;
     }
 
     function cacheMessagePayload(payload) {
