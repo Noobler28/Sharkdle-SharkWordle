@@ -127,22 +127,19 @@
                 position: fixed;
                 inset: 0;
                 pointer-events: none;
-                z-index: 0;
-                opacity: 0.55;
+                z-index: 2;
+                opacity: 0.62;
                 mix-blend-mode: screen;
                 background:
-                    radial-gradient(circle at 18px 22px, rgba(255, 120, 203, 0.95) 0 3px, transparent 3.4px),
-                    radial-gradient(circle at 52px 74px, rgba(120, 210, 255, 0.95) 0 3px, transparent 3.4px),
-                    radial-gradient(circle at 108px 26px, rgba(255, 221, 120, 0.95) 0 3px, transparent 3.4px),
-                    radial-gradient(circle at 76px 118px, rgba(160, 255, 198, 0.9) 0 3px, transparent 3.4px),
-                    radial-gradient(circle at 138px 92px, rgba(205, 164, 255, 0.9) 0 3px, transparent 3.4px),
-                    radial-gradient(circle at 158px 40px, rgba(255, 165, 120, 0.9) 0 3px, transparent 3.4px);
-                background-size: 220px 220px, 260px 260px, 320px 320px, 240px 240px, 360px 360px, 300px 300px;
+                    radial-gradient(circle at 18px 22px, rgba(255, 120, 203, 0.98) 0 3.4px, transparent 3.9px),
+                    radial-gradient(circle at 52px 74px, rgba(120, 210, 255, 0.98) 0 3.4px, transparent 3.9px),
+                    radial-gradient(circle at 108px 26px, rgba(255, 221, 120, 0.98) 0 3.4px, transparent 3.9px),
+                    radial-gradient(circle at 76px 118px, rgba(160, 255, 198, 0.92) 0 3.4px, transparent 3.9px),
+                    radial-gradient(circle at 138px 92px, rgba(205, 164, 255, 0.92) 0 3.4px, transparent 3.9px),
+                    radial-gradient(circle at 158px 40px, rgba(255, 165, 120, 0.92) 0 3.4px, transparent 3.9px),
+                    radial-gradient(circle at 26px 146px, rgba(255, 255, 255, 0.35) 0 2.4px, transparent 2.9px);
+                background-size: 220px 220px, 260px 260px, 320px 320px, 240px 240px, 360px 360px, 300px 300px, 420px 420px;
                 animation: birthday-confetti-drift 16s linear infinite;
-            }
-            body.${THEME_CLASS_PREFIX}birthday > * {
-                position: relative;
-                z-index: 1;
             }
             body.${THEME_CLASS_PREFIX}birthday .logo {
                 display: inline-flex;
@@ -166,7 +163,7 @@
                 border: 1px solid rgba(255, 186, 247, 0.34);
                 color: #ffe085;
                 box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
-                -webkit-text-fill-color: initial;
+                -webkit-text-fill-color: #ffe085;
             }
             @keyframes birthday-confetti-drift {
                 from { background-position: 0 0, 40px 10px, 120px 0, 10px 70px, 80px 40px, 150px 20px; }
