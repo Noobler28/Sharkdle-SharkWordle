@@ -16,17 +16,9 @@ function getNextMidnightTime() {
 
 const today = getTodayInLocalTimezone()
 
+// Daily target must be fully deterministic so every player gets the same shark.
 const dailySharkIndex = hashDate(today) % sharks.length
-let targetShark = sharks[dailySharkIndex]
-const lastDailyFamily = localStorage.getItem('lastDailyFamily');
-if (lastDailyFamily && targetShark.family === lastDailyFamily) {
-  let newIndex;
-  do {
-    newIndex = Math.floor(Math.random() * sharks.length);
-  } while (sharks[newIndex].family === lastDailyFamily);
-  targetShark = sharks[newIndex];
-}
-localStorage.setItem('lastDailyFamily', targetShark.family);
+const targetShark = sharks[dailySharkIndex]
 
 let attempts = 12
 let guesses = []
@@ -400,6 +392,9 @@ if(shark.name === targetShark.name){
     profileData.wins = (profileData.wins || 0) + 1;
     profileData.currentStreak = (profileData.currentStreak || 0) + 1;
     profileData.highestStreak = Math.max(profileData.highestStreak || 0, profileData.currentStreak);
+    if (typeof incrementProfilePeriodWins === 'function') {
+        incrementProfilePeriodWins(profileData);
+    }
     
     // Update best game (fewest guesses)
     if (!profileData.bestGame || profileData.bestGame === 'N/A' || guessesTaken < parseInt(profileData.bestGame)) {
@@ -413,6 +408,7 @@ if(shark.name === targetShark.name){
 
     // Gain XP and save to totalXP for Shark Pass
     profileData.totalXP = (profileData.totalXP || 0) + xpGain;
+    profileData.lastUpdated = Date.now();
 
     if (typeof saveUserProfileLocally === 'function') {
         saveUserProfileLocally({
@@ -472,12 +468,18 @@ if(attempts===0){
         // Update stats
         profileData.gamesPlayed = (profileData.gamesPlayed || 0) + 1;
         profileData.losses = (profileData.losses || 0) + 1;
-        profileData.currentStreak = 0; // Reset streak on loss
+        const streakShieldUsed = typeof window.applyStreakShieldOnLoss === 'function'
+            ? window.applyStreakShieldOnLoss(profileData, { mode: "Daily" })
+            : false;
+        if (!streakShieldUsed) {
+            profileData.currentStreak = 0; // Reset streak on loss when no shield is available
+        }
         
         // Calculate and save average guesses
         if (profileData.gamesPlayed > 0) {
             profileData.averageGuesses = (profileData.totalGuesses / profileData.gamesPlayed).toFixed(2);
         }
+        profileData.lastUpdated = Date.now();
 
         if (typeof saveUserProfileLocally === 'function') {
             saveUserProfileLocally({
