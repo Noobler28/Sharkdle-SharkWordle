@@ -1173,7 +1173,7 @@
     <main class="library-shell">
         <section class="library-hero">
             <div style="text-align:center;">
-                <h1>The Sharchive</h1>
+                <h1>🦈 The Sharchive</h1>
                 <p>Browse every shark in the collection.  Help narrow down your target shark using the filter options.</p>
             </div>
             <div class="library-summary">
@@ -1666,7 +1666,7 @@
                 header.innerHTML = `
                     <div class="order-title">
                         <span class="order-name">${order}</span>
-                        <span class="order-meta">${getCommonName(order) || 'Shark order archive'} • ${orderGroups[order].length} species</span>
+                        <span class="order-meta">${getCommonName(order) || 'Shark order archive'} � ${orderGroups[order].length} species</span>
                     </div>
                     <span class="order-arrow">&#9660;</span>
                 `;
@@ -1696,7 +1696,7 @@
                     card.innerHTML = `
                         <div class="card-inner">
                             <div class="card-front">
-                                <button class="heart-btn ${heartedSharks.has(shark.name) ? 'hearted' : ''}" data-shark="${shark.name}" title="Add to favorites">${heartedSharks.has(shark.name) ? '❤️' : '🤍'}</button>
+                                <button class="heart-btn ${heartedSharks.has(shark.name) ? 'hearted' : ''}" data-shark="${shark.name}" title="Add to favorites">${heartedSharks.has(shark.name) ? '❤️' : '♡'}</button>
                                 <div class="card-front-content">
                                     <div class="card-front-meta">
                                         <span class="shark-chip">${shark.size}</span>
@@ -1857,8 +1857,10 @@
 
             updateLibrarySummary();
     </script>
+<script src="global-broadcast.js"></script>
 </body>
 </html>
+
 
 
 
