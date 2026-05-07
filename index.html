@@ -238,6 +238,17 @@
     <div id="theme-select-container" class="profile-cosmetic-row theme-select-grid"></div>
 </div>
 
+<div class="profile-theme-section" style="margin:10px 0 20px 0;">
+    <h4 style="font-size:15px;margin-bottom:6px;">Seasonal Theme</h4>
+    <p style="margin:0 0 10px 0;color:#b8eaf9;font-size:13px;line-height:1.45;">
+        Prefer the default look? You can disable seasonal themes on this device.
+    </p>
+    <button id="seasonal-theme-toggle-btn" onclick="toggleSeasonalThemeOverride()" class="profile-badge-btn" style="padding:8px 12px;background:#00b4d8;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-size:12px;">
+        Use Default Theme
+    </button>
+    <div id="seasonal-theme-status" style="margin-top:8px;color:#8fdff8;font-size:12px;font-weight:600;"></div>
+</div>
+
 <div class="profile-tabs-container">
     <div class="profile-tabs">
         <button class="profile-tab-btn active" id="stats-tab-btn" onclick="showProfileTab('stats')">Stats</button>
@@ -654,10 +665,10 @@
 <button class="admin-abuse-btn admin-abuse-btn-secondary" onclick="adminStopGlobalXpEvent()">Stop Event</button>
 </div>
 <div id="admin-xp-status" class="admin-abuse-status">No event update yet.</div>
-</section>
+    </section>
 
-<section class="picker-section admin-abuse-section">
-<h3>Global Item Grants</h3>
+    <section class="picker-section admin-abuse-section">
+        <h3>Global Item Grants</h3>
 <p style="margin:0 0 10px 0;color:#9fd9ea;font-size:12px;">Grants only apply to players active in the last 5 minutes.</p>
 <div class="admin-abuse-grid">
 <div class="admin-abuse-card">
