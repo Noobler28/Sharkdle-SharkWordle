@@ -2158,7 +2158,17 @@ body.home-page {
 }
 
 body.home-page.index-theme-summer {
-    background: linear-gradient(135deg, #0a3a52, #0d6f86, #1a9ba5);
+    /* Summer Splash: add a subtle "sandy ocean floor" near the bottom */
+    background:
+        radial-gradient(1200px 260px at 35% 110%, rgba(255, 232, 182, 0.55) 0%, rgba(255, 232, 182, 0) 62%),
+        radial-gradient(900px 220px at 78% 112%, rgba(228, 190, 118, 0.42) 0%, rgba(228, 190, 118, 0) 64%),
+        linear-gradient(180deg,
+            #0a3a52 0%,
+            #0d6f86 52%,
+            #1a9ba5 68%,
+            #2fb3b0 74%,
+            #cfa86e 86%,
+            #b88950 100%);
 }
 
 body.home-page.index-theme-summer .navbar {
@@ -2171,6 +2181,39 @@ body.home-page.index-theme-summer .home-hero {
 
 body.home-page.index-theme-summer .game-card {
     border-color: rgba(134, 247, 255, 0.28);
+}
+
+body.home-page.index-theme-birthday {
+    /* Sharkdle Birthday: fun but still clean */
+    background:
+        radial-gradient(900px 420px at 50% -10%, rgba(255, 120, 203, 0.18) 0%, rgba(255, 120, 203, 0) 62%),
+        radial-gradient(820px 360px at 15% 12%, rgba(120, 210, 255, 0.16) 0%, rgba(120, 210, 255, 0) 60%),
+        radial-gradient(760px 340px at 85% 18%, rgba(255, 221, 120, 0.14) 0%, rgba(255, 221, 120, 0) 60%),
+        linear-gradient(135deg, #071a3a, #163c7a, #2b77b8);
+}
+
+body.home-page.index-theme-birthday .navbar {
+    background: #0b1f45;
+}
+
+body.home-page.index-theme-birthday .home-hero {
+    background: linear-gradient(rgba(8, 14, 38, 0.52), rgba(21, 62, 120, 0.74));
+}
+
+body.home-page.index-theme-birthday .home-hero h1 {
+    background: linear-gradient(135deg, #ff78cb, #ffe085, #78d2ff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: none;
+}
+
+body.home-page.index-theme-birthday .home-hero .hero-subtitle {
+    color: rgba(235, 252, 255, 0.92);
+}
+
+body.home-page.index-theme-birthday .game-card {
+    border-color: rgba(255, 186, 247, 0.26);
 }
 
 body.home-page.index-theme-christmas {
