@@ -1,0 +1,301 @@
+(function initializeGlobalBroadcast() {
+    const FIREBASE_CONFIG = {
+        apiKey: "AIzaSyAS9l8O1jRMafPt3r0lF6mqjr2-gl-EbZ0",
+        authDomain: "sharkdle-leaderboard.firebaseapp.com",
+        databaseURL: "https://sharkdle-leaderboard-default-rtdb.firebaseio.com",
+        projectId: "sharkdle-leaderboard",
+        storageBucket: "sharkdle-leaderboard.firebasestorage.app",
+        messagingSenderId: "429123174628",
+        appId: "1:429123174628:web:42ae9baed69c4b087c2cf1",
+        measurementId: "G-HV5FFNKM5C"
+    };
+
+    const MESSAGE_CONFIG_PATH = { collection: "globalConfig", doc: "globalMessage" };
+    const INDEX_THEME_CONFIG_PATH = { collection: "globalConfig", doc: "indexTheme" };
+    const MESSAGE_CACHE_KEY = "globalBroadcastMessageCache";
+    const THEME_CACHE_KEY = "globalUiThemeCache";
+    const THEME_IDS = ["default", "summer", "christmas", "halloween"];
+    const THEME_CLASS_PREFIX = "global-ui-theme-";
+    const STYLE_ID = "global-broadcast-style";
+    const BANNER_ID = "global-broadcast-banner";
+    const STARTED_KEY = "__globalBroadcastStarted";
+
+    function loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = src;
+            script.async = true;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error(`Failed to load ${src}`));
+            document.head.appendChild(script);
+        });
+    }
+
+    function injectStyles() {
+        if (document.getElementById(STYLE_ID)) return;
+        const style = document.createElement("style");
+        style.id = STYLE_ID;
+        style.textContent = `
+            .global-broadcast-banner {
+                position: fixed;
+                left: 50%;
+                bottom: 14px;
+                transform: translateX(-50%);
+                max-width: min(94vw, 920px);
+                width: fit-content;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px 14px;
+                border-radius: 12px;
+                border: 1px solid rgba(180, 236, 255, 0.28);
+                background: linear-gradient(135deg, rgba(7, 38, 58, 0.96), rgba(10, 60, 92, 0.96));
+                color: #f2fdff;
+                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+                z-index: 12000;
+                font-family: 'Poppins', sans-serif;
+            }
+            .global-broadcast-banner.hidden {
+                display: none;
+            }
+            .global-broadcast-pill {
+                font-size: 10px;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.12em;
+                padding: 5px 8px;
+                border-radius: 999px;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                background: rgba(255, 255, 255, 0.12);
+                white-space: nowrap;
+            }
+            .global-broadcast-message {
+                font-size: 13px;
+                line-height: 1.45;
+                font-weight: 600;
+                color: #eaf9ff;
+                word-break: break-word;
+            }
+            .global-broadcast-banner.type-warning {
+                background: linear-gradient(135deg, rgba(79, 39, 11, 0.96), rgba(121, 56, 15, 0.96));
+                border-color: rgba(255, 204, 142, 0.38);
+            }
+            .global-broadcast-banner.type-event {
+                background: linear-gradient(135deg, rgba(29, 16, 84, 0.96), rgba(28, 91, 146, 0.96));
+                border-color: rgba(203, 194, 255, 0.4);
+            }
+            body.${THEME_CLASS_PREFIX}default {
+                --global-theme-body-bg: linear-gradient(135deg, #061a40, #0b3c5d);
+                --global-theme-navbar-bg: #071c2c;
+                --global-theme-surface-bg: linear-gradient(180deg, rgba(11,34,51,0.96), rgba(9,29,44,0.96));
+                --global-theme-surface-border: rgba(77, 208, 225, 0.14);
+            }
+            body.${THEME_CLASS_PREFIX}summer {
+                --global-theme-body-bg: linear-gradient(135deg, #0a3a52, #0d6f86, #1a9ba5);
+                --global-theme-navbar-bg: #0b3948;
+                --global-theme-surface-bg: linear-gradient(180deg, rgba(8, 52, 70, 0.95), rgba(11, 95, 118, 0.92));
+                --global-theme-surface-border: rgba(151, 245, 255, 0.3);
+            }
+            body.${THEME_CLASS_PREFIX}christmas {
+                --global-theme-body-bg: linear-gradient(135deg, #06241f, #133a2d, #6f1515);
+                --global-theme-navbar-bg: #0d2c24;
+                --global-theme-surface-bg: linear-gradient(180deg, rgba(16, 50, 37, 0.96), rgba(72, 18, 18, 0.9));
+                --global-theme-surface-border: rgba(255, 224, 163, 0.28);
+            }
+            body.${THEME_CLASS_PREFIX}halloween {
+                --global-theme-body-bg: linear-gradient(135deg, #160d2b, #2b153f, #5f2c0a);
+                --global-theme-navbar-bg: #1e1133;
+                --global-theme-surface-bg: linear-gradient(180deg, rgba(35, 19, 54, 0.96), rgba(86, 40, 14, 0.9));
+                --global-theme-surface-border: rgba(255, 193, 142, 0.3);
+            }
+            body[class*="${THEME_CLASS_PREFIX}"] {
+                background: var(--global-theme-body-bg, linear-gradient(135deg, #061a40, #0b3c5d)) !important;
+            }
+            body[class*="${THEME_CLASS_PREFIX}"] .navbar {
+                background: var(--global-theme-navbar-bg, #071c2c) !important;
+            }
+            body[class*="${THEME_CLASS_PREFIX}"] .game-card,
+            body[class*="${THEME_CLASS_PREFIX}"] .modal-content,
+            body[class*="${THEME_CLASS_PREFIX}"] .picker-section,
+            body[class*="${THEME_CLASS_PREFIX}"] .timeline-item,
+            body[class*="${THEME_CLASS_PREFIX}"] .stat-card {
+                background: var(--global-theme-surface-bg, linear-gradient(180deg, rgba(11,34,51,0.96), rgba(9,29,44,0.96))) !important;
+                border-color: var(--global-theme-surface-border, rgba(77, 208, 225, 0.14)) !important;
+            }
+            @media (max-width: 640px) {
+                .global-broadcast-banner {
+                    left: 10px;
+                    right: 10px;
+                    transform: none;
+                    width: auto;
+                    bottom: 12px;
+                    padding: 10px 12px;
+                }
+                .global-broadcast-message {
+                    font-size: 12px;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function ensureBannerElement() {
+        let banner = document.getElementById(BANNER_ID);
+        if (!banner) {
+            banner = document.createElement("div");
+            banner.id = BANNER_ID;
+            banner.className = "global-broadcast-banner hidden";
+            banner.setAttribute("role", "status");
+            banner.setAttribute("aria-live", "polite");
+            banner.innerHTML = `
+                <span class="global-broadcast-pill">Global</span>
+                <span class="global-broadcast-message"></span>
+            `;
+            document.body.appendChild(banner);
+        }
+        return banner;
+    }
+
+    function normalizeMessageType(type) {
+        const normalized = String(type || "").trim().toLowerCase();
+        if (normalized === "event" || normalized === "warning") return normalized;
+        return "info";
+    }
+
+    function parseMessagePayload(rawData) {
+        if (!rawData || typeof rawData !== "object") return null;
+        const message = String(rawData.message || "").trim();
+        if (!rawData.enabled || !message) return null;
+        const expiresAt = Number(rawData.expiresAt || 0);
+        if (Number.isFinite(expiresAt) && expiresAt > 0 && expiresAt <= Date.now()) {
+            return null;
+        }
+        return {
+            message,
+            type: normalizeMessageType(rawData.type || "info")
+        };
+    }
+
+    function normalizeThemeId(themeId) {
+        const normalized = String(themeId || "").trim().toLowerCase();
+        return THEME_IDS.includes(normalized) ? normalized : "default";
+    }
+
+    function applyGlobalTheme(themeId) {
+        const normalizedThemeId = normalizeThemeId(themeId);
+        THEME_IDS.forEach(id => document.body.classList.remove(`${THEME_CLASS_PREFIX}${id}`));
+        document.body.classList.add(`${THEME_CLASS_PREFIX}${normalizedThemeId}`);
+        localStorage.setItem(THEME_CACHE_KEY, normalizedThemeId);
+        return normalizedThemeId;
+    }
+
+    function cacheMessagePayload(payload) {
+        if (!payload) {
+            localStorage.removeItem(MESSAGE_CACHE_KEY);
+            return;
+        }
+        localStorage.setItem(MESSAGE_CACHE_KEY, JSON.stringify({
+            message: payload.message,
+            type: payload.type,
+            cachedAt: Date.now()
+        }));
+    }
+
+    function readCachedMessagePayload() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(MESSAGE_CACHE_KEY) || "null");
+            if (!parsed || typeof parsed !== "object") return null;
+            const message = String(parsed.message || "").trim();
+            if (!message) return null;
+            return {
+                message,
+                type: normalizeMessageType(parsed.type || "info")
+            };
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function readCachedThemeId() {
+        return normalizeThemeId(localStorage.getItem(THEME_CACHE_KEY) || "default");
+    }
+
+    function renderBanner(payload) {
+        const banner = ensureBannerElement();
+        const messageEl = banner.querySelector(".global-broadcast-message");
+        if (!messageEl) return;
+
+        banner.classList.remove("type-info", "type-event", "type-warning");
+        if (!payload) {
+            banner.classList.add("hidden");
+            messageEl.textContent = "";
+            cacheMessagePayload(null);
+            return;
+        }
+
+        banner.classList.add(`type-${payload.type}`);
+        messageEl.textContent = payload.message;
+        banner.classList.remove("hidden");
+        cacheMessagePayload(payload);
+    }
+
+    async function ensureFirebaseLoaded() {
+        if (typeof firebase !== "undefined" && typeof firebase.firestore === "function") {
+            return;
+        }
+
+        await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js");
+        await loadScript("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js");
+    }
+
+    async function startFirestoreListener() {
+        if (window[STARTED_KEY]) return;
+        window[STARTED_KEY] = true;
+
+        try {
+            await ensureFirebaseLoaded();
+            if (typeof firebase === "undefined" || typeof firebase.firestore !== "function") {
+                return;
+            }
+
+            if (!firebase.apps.length) {
+                firebase.initializeApp(FIREBASE_CONFIG);
+            }
+
+            const db = firebase.firestore();
+            db.collection(MESSAGE_CONFIG_PATH.collection)
+                .doc(MESSAGE_CONFIG_PATH.doc)
+                .onSnapshot(snapshot => {
+                    const payload = parseMessagePayload(snapshot.exists ? snapshot.data() : null);
+                    renderBanner(payload);
+                }, error => {
+                    console.warn("Global broadcast listener failed:", error);
+                });
+
+            db.collection(INDEX_THEME_CONFIG_PATH.collection)
+                .doc(INDEX_THEME_CONFIG_PATH.doc)
+                .onSnapshot(snapshot => {
+                    const remoteThemeId = snapshot.exists ? snapshot.data()?.themeId : "default";
+                    applyGlobalTheme(remoteThemeId || "default");
+                }, error => {
+                    console.warn("Global theme listener failed:", error);
+                    applyGlobalTheme(readCachedThemeId());
+                });
+        } catch (error) {
+            console.warn("Global broadcast bootstrap failed:", error);
+        }
+    }
+
+    function boot() {
+        injectStyles();
+        applyGlobalTheme(readCachedThemeId());
+        renderBanner(readCachedMessagePayload());
+        startFirestoreListener();
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", boot, { once: true });
+    } else {
+        boot();
+    }
+})();
