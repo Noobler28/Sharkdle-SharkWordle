@@ -2157,6 +2157,54 @@ body.home-page {
     min-height: 100vh;
 }
 
+body.home-page.index-theme-summer {
+    background: linear-gradient(135deg, #0a3a52, #0d6f86, #1a9ba5);
+}
+
+body.home-page.index-theme-summer .navbar {
+    background: #0b3948;
+}
+
+body.home-page.index-theme-summer .home-hero {
+    background: linear-gradient(rgba(2, 25, 36, 0.48), rgba(3, 49, 69, 0.72));
+}
+
+body.home-page.index-theme-summer .game-card {
+    border-color: rgba(134, 247, 255, 0.28);
+}
+
+body.home-page.index-theme-christmas {
+    background: linear-gradient(135deg, #06241f, #133a2d, #6f1515);
+}
+
+body.home-page.index-theme-christmas .navbar {
+    background: #0d2c24;
+}
+
+body.home-page.index-theme-christmas .home-hero {
+    background: linear-gradient(rgba(8, 28, 18, 0.55), rgba(57, 14, 14, 0.72));
+}
+
+body.home-page.index-theme-christmas .game-card {
+    border-color: rgba(255, 211, 144, 0.24);
+}
+
+body.home-page.index-theme-halloween {
+    background: linear-gradient(135deg, #160d2b, #2b153f, #5f2c0a);
+}
+
+body.home-page.index-theme-halloween .navbar {
+    background: #1e1133;
+}
+
+body.home-page.index-theme-halloween .home-hero {
+    background: linear-gradient(rgba(20, 11, 36, 0.58), rgba(73, 33, 9, 0.68));
+}
+
+body.home-page.index-theme-halloween .game-card {
+    border-color: rgba(255, 188, 136, 0.26);
+}
+
 .home-shell {
     width: 100%;
     max-width: 100%;
@@ -2557,6 +2605,159 @@ overflow-y:auto;
     margin: 0 0 12px !important;
     color: #e8fbff;
     font-size: 15px;
+}
+
+.profile-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: -8px 0 18px;
+}
+
+.profile-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(77, 208, 225, 0.2);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(9, 39, 58, 0.94), rgba(8, 28, 43, 0.92));
+    color: #dcf8ff;
+    padding: 10px 13px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.profile-action-btn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(122, 231, 255, 0.4);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+}
+
+.profile-action-btn-admin {
+    background: linear-gradient(135deg, rgba(95, 109, 255, 0.34), rgba(0, 124, 221, 0.26));
+    border-color: rgba(164, 171, 255, 0.32);
+}
+
+.admin-abuse-modal-content {
+    gap: 14px;
+}
+
+.admin-abuse-section h3 {
+    margin: 0 0 10px !important;
+}
+
+.admin-abuse-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.admin-abuse-row-stack {
+    align-items: stretch;
+}
+
+.admin-abuse-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.admin-abuse-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 12px;
+}
+
+.admin-abuse-card-title {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #92e5fb;
+    margin-bottom: 10px;
+}
+
+.admin-abuse-input,
+.admin-abuse-select,
+.admin-abuse-textarea {
+    border: 1px solid rgba(120, 201, 232, 0.24);
+    border-radius: 10px;
+    background: rgba(5, 24, 38, 0.9);
+    color: #ecfdff;
+    font-family: inherit;
+}
+
+.admin-abuse-input,
+.admin-abuse-select {
+    min-height: 40px;
+    padding: 9px 11px;
+    min-width: 96px;
+}
+
+.admin-abuse-select {
+    flex: 1 1 240px;
+}
+
+.admin-abuse-textarea {
+    width: 100%;
+    min-height: 86px;
+    resize: vertical;
+    padding: 10px 12px;
+    line-height: 1.45;
+    margin-bottom: 10px;
+}
+
+.admin-abuse-btn {
+    border: none;
+    border-radius: 10px;
+    min-height: 40px;
+    padding: 9px 14px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #00b4d8, #179dd1);
+    color: #fff;
+    cursor: pointer;
+}
+
+.admin-abuse-btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.admin-abuse-status {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #b9ecf9;
+    line-height: 1.4;
+}
+
+.admin-abuse-status.error {
+    color: #ffb3b3;
+}
+
+@media (max-width: 640px) {
+    .profile-quick-actions {
+        flex-direction: column;
+    }
+
+    .profile-action-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .admin-abuse-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .admin-abuse-input,
+    .admin-abuse-select,
+    .admin-abuse-btn {
+        width: 100%;
+    }
 }
 
 .picker-modal-content {
