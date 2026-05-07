@@ -238,7 +238,6 @@
     <div id="theme-select-container" class="profile-cosmetic-row theme-select-grid"></div>
 </div>
 
-
 <div class="profile-tabs-container">
     <div class="profile-tabs">
         <button class="profile-tab-btn active" id="stats-tab-btn" onclick="showProfileTab('stats')">Stats</button>
@@ -285,8 +284,27 @@
         <div class="recent-games-list" id="recent-games-list" style="max-height:260px;overflow-y:auto;"></div>
     </div>
     <div class="profile-tab-content" id="friends-tab" style="display:none;">
+            <!-- Consumables Tab Content -->
+            <div class="profile-tab-content" id="consumables-tab" style="display:none;">
+        <main id="consumables-page" class="consumables-page" style="padding:0;box-shadow:none;background:none;max-width:unset;">
+            <section class="consumables-hero">
+                <div class="consumables-kicker">Inventory Hub</div>
+                <h1>Streak Shields</h1>
+                <p>Streak shields are auto-used to protect your win streak on a loss. You can hold up to 3 at a time.</p>
+                <div id="login-warning" class="login-warning hero-alert hidden">
+                    You are not logged in. Consumables are disabled until login.
+                </div>
+            </section>
+            <section class="consumables-metrics">
+                <article class="consumables-metric-card">
+                    <div class="consumables-metric-label">Streak Shields</div>
+                    <div id="consumables-shield-count" class="consumables-metric-value">0</div>
+                    <div class="consumables-metric-note">Max: 3</div>
+                </article>
+            </section>
+        </main>
+            </div>
         <div class="friends-container">
-            <!-- Compact Header with Stats and User Info -->
             <div class="friends-header">
                 <div class="friends-hero-copy">
                     <div class="friends-kicker">Social hub</div>
@@ -621,12 +639,78 @@
 </div>
 </div>
 
+<div id="adminAbuseModal" class="modal hidden">
+<div class="modal-content picker-modal-content admin-abuse-modal-content" style="width:95%;max-width:860px;max-height:88vh;overflow-y:auto;display:flex;flex-direction:column;">
+<div class="picker-modal-heading">
+<div class="picker-modal-kicker">Developer Tools</div>
+<h2>Admin Abuse</h2>
+</div>
+
+<section class="picker-section admin-abuse-section">
+<h3>Global 2x XP Event</h3>
+<div class="admin-abuse-row">
+<input id="admin-global-xp-hours" type="number" min="1" max="720" step="1" value="24" class="admin-abuse-input" placeholder="Hours">
+<button class="primary-btn admin-abuse-btn" onclick="adminStartGlobalXpEvent()">Start 2x XP</button>
+<button class="admin-abuse-btn admin-abuse-btn-secondary" onclick="adminStopGlobalXpEvent()">Stop Event</button>
+</div>
+<div id="admin-xp-status" class="admin-abuse-status">No event update yet.</div>
+</section>
+
+<section class="picker-section admin-abuse-section">
+<h3>Global Item Grants</h3>
+<p style="margin:0 0 10px 0;color:#9fd9ea;font-size:12px;">Grants only apply to players active in the last 5 minutes.</p>
+<div class="admin-abuse-grid">
+<div class="admin-abuse-card">
+<div class="admin-abuse-card-title">Crates</div>
+<div class="admin-abuse-row">
+<input id="admin-grant-crates-count" type="number" min="1" max="99" step="1" value="1" class="admin-abuse-input" placeholder="Amount">
+<button class="admin-abuse-btn" onclick="adminGrantGlobalCrates()">Grant</button>
+</div>
+</div>
+<div class="admin-abuse-card">
+<div class="admin-abuse-card-title">Streak Shields</div>
+<div class="admin-abuse-row">
+<input id="admin-grant-shields-count" type="number" min="1" max="99" step="1" value="1" class="admin-abuse-input" placeholder="Amount">
+<button class="admin-abuse-btn" onclick="adminGrantGlobalStreakShields()">Grant</button>
+</section>
+
+<section class="picker-section admin-abuse-section">
+<h3>Index Theme</h3>
+<div class="admin-abuse-row">
+<select id="admin-index-theme-select" class="admin-abuse-select">
+<option value="default">Default Ocean</option>
+<option value="summer">Summer Splash</option>
+<option value="christmas">Christmas Reef</option>
+<option value="halloween">Halloween Depths</option>
+</select>
+<button class="admin-abuse-btn" onclick="adminApplyIndexTheme()">Apply Theme</button>
+</div>
+<div id="admin-theme-status" class="admin-abuse-status">Theme control ready.</div>
+</section>
+
+<section class="picker-section admin-abuse-section">
+<h3>Global Message (All Pages)</h3>
+<textarea id="admin-global-message-input" class="admin-abuse-textarea" maxlength="220" placeholder="Example: Happy Shark Week! 2x XP is live for the next 24 hours."></textarea>
+<div class="admin-abuse-row">
+<select id="admin-global-message-type" class="admin-abuse-select">
+<option value="info">Info</option>
+<option value="event">Event</option>
+<option value="warning">Warning</option>
+</select>
+<button class="admin-abuse-btn" onclick="adminSetGlobalMessage()">Publish</button>
+<button class="admin-abuse-btn admin-abuse-btn-secondary" onclick="adminClearGlobalMessage()">Clear</button>
+</div>
+<div id="admin-message-status" class="admin-abuse-status">No message update yet.</div>
+</section>
+
+<button onclick="closeAdminAbuseModal()" style="width:100%;padding:10px;margin-top:16px;background:#ccc;color:#333;border:none;border-radius:6px;cursor:pointer;font-weight:600;flex-shrink:0;">Close</button>
+</div>
+</div>
+
 <div id="cratesModal" class="modal hidden">
 <div class="modal-content picker-modal-content crates-modal-content" style="width: 95%; max-width: 860px; max-height: 88vh; overflow-y: auto; display: flex; flex-direction: column;">
 <div class="picker-modal-heading">
-<div class="picker-modal-kicker">Cosmetics</div>
-<h2>Crates</h2>
-<p>Win games for a 35% shot at earning a crate, then open them here for profile pictures, badges, and themes.</p>
+<p>Win games for a 35% shot at earning a crate.</p>
 </div>
 
 <div class="crates-layout">
@@ -665,6 +749,9 @@
 </span>
 </label>
 <div id="crate-pity-copy" class="crate-pity-copy"></div>
+<div id="streak-shield-copy" class="crate-pity-copy"></div>
+</div>
+<div class="crate-action-row">
 </div>
 </section>
 
@@ -702,6 +789,7 @@
 </div>
 
 <script src="script.js"></script>
+<script src="global-broadcast.js"></script>
 <script>
 function openDevModal() {
     document.getElementById('devModal').classList.remove('hidden');
