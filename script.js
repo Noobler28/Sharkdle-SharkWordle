@@ -1275,6 +1275,20 @@ const GLOBAL_XP_EVENT_CONFIG_PATH = {
     collection: "globalConfig",
     doc: "xpEvent"
 };
+const GLOBAL_INDEX_THEME_CONFIG_PATH = {
+    collection: "globalConfig",
+    doc: "indexTheme"
+};
+const GLOBAL_MESSAGE_CONFIG_PATH = {
+    collection: "globalConfig",
+    doc: "globalMessage"
+};
+const INDEX_THEME_OPTIONS = [
+    { id: "default", name: "Default Ocean" },
+    { id: "summer", name: "Summer Splash" },
+    { id: "christmas", name: "Christmas Reef" },
+    { id: "halloween", name: "Halloween Depths" }
+];
 const limitedTimeXpEvent = {
     id: "june-2026-double-xp",
     label: "2x XP Event",
@@ -1304,6 +1318,51 @@ const crateDuplicateXpRewards = {
     epic: 160,
     legendary: 320
 };
+const STREAK_SHIELD_ITEM_ID = "streak-shield";
+const XP_POTION_ITEM_ID = "xp-potion-2x-5m";
+const XP_POTION_LIGHT_ITEM_ID = "xp-potion-1-5x-15m";
+const XP_POTION_HEAVY_ITEM_ID = "xp-potion-3x-2m";
+const XP_POTION_STANDARD_MULTIPLIER = 2;
+const XP_POTION_STANDARD_DURATION_MS = 5 * 60 * 1000;
+const XP_POTION_DEFINITIONS = [
+    {
+        itemId: XP_POTION_LIGHT_ITEM_ID,
+        countField: "xpPotionLiteCount",
+        name: "Calm Booster",
+        shortLabel: "1.5x for 15m",
+        multiplier: 1.5,
+        durationMs: 15 * 60 * 1000,
+        emoji: "🧪",
+        rarity: "common",
+        blurb: "Applies a steady 1.5x XP boost for 15 minutes."
+    },
+    {
+        itemId: XP_POTION_ITEM_ID,
+        countField: "xpPotionCount",
+        name: "Tidal Booster",
+        shortLabel: "2x for 5m",
+        multiplier: XP_POTION_STANDARD_MULTIPLIER,
+        durationMs: XP_POTION_STANDARD_DURATION_MS,
+        emoji: "⚗️",
+        rarity: "rare",
+        blurb: "Applies a 2x XP boost for 5 minutes."
+    },
+    {
+        itemId: XP_POTION_HEAVY_ITEM_ID,
+        countField: "xpPotionMegaCount",
+        name: "Apex Booster",
+        shortLabel: "3x for 2m",
+        multiplier: 3,
+        durationMs: 2 * 60 * 1000,
+        emoji: "🧬",
+        rarity: "epic",
+        blurb: "Applies a burst 3x XP boost for 2 minutes."
+    }
+];
+const XP_POTION_DEFINITION_MAP = Object.fromEntries(
+    XP_POTION_DEFINITIONS.map(def => [def.itemId, def])
+);
+const XP_POTION_COUNT_FIELDS = XP_POTION_DEFINITIONS.map(def => def.countField);
 
 const crateRewardPool = [
     { id: "crate-pfp-pyjama", type: "pfp", name: "Pyjama Shark", imagePath: "images/cratePfp/Shark24.png", rarity: "common", blurb: "Unlock the Pyjama Shark profile picture." },
@@ -1313,6 +1372,7 @@ const crateRewardPool = [
     { id: "crate-theme-volcanic-ember", type: "theme", themeId: "volcanic-ember", name: "Volcanic Ember", rarity: "rare", blurb: "Unlock the Volcanic Ember theme." },
     { id: "crate-pfp-frilled", type: "pfp", name: "Frilled Shark", imagePath: "images/cratePfp/Shark23.png", rarity: "epic", blurb: "Unlock the Frilled Shark profile picture." },
     { id: "crate-badge-trench-myth", type: "badge", badgeId: "trench-myth", name: "Message Bottle", rarity: "epic", blurb: "Unlock the Message Bottle badge." },
+    { id: "crate-item-streak-shield", type: "item", itemId: STREAK_SHIELD_ITEM_ID, quantity: 1, emoji: "🛡️", name: "Streak Shield", rarity: "epic", blurb: "Protects your win streak from one loss. Auto-activates when needed." },
     { id: "crate-theme-kelp-canopy", type: "theme", themeId: "kelp-canopy", name: "Kelp Canopy", rarity: "epic", blurb: "Unlock the Kelp Canopy theme." },
     { id: "crate-pfp-megamouth", type: "pfp", name: "Megamouth Shark", imagePath: "images/cratePfp/Shark22.png", rarity: "legendary", blurb: "Unlock the Megamouth Shark profile picture." },
     { id: "crate-badge-aurora-fin", type: "badge", badgeId: "aurora-fin", name: "Doubloon", rarity: "legendary", blurb: "Unlock the Doubloon badge." },
@@ -1324,6 +1384,7 @@ let pendingProfileSyncTimeout = null;
 let pendingAuthStateClearTimeout = null;
 let globalXpEventOverride = null;
 let globalXpEventUnsubscribe = null;
+let globalIndexThemeUnsubscribe = null;
 let cloudProfileReloadTimeouts = [];
 let lastServerHydratedProfileUid = null;
 const CLOUD_PROFILE_RELOAD_DELAYS_MS = [1200, 4000, 9000];
@@ -1479,6 +1540,165 @@ function getCrateInventory(profileData = getCurrentProfileData()) {
     return normalizeCrateInventory(profileData.crateInventory || {});
 }
 
+function getStreakShieldCount(profileData = getCurrentProfileData()) {
+    return Math.min(3, Math.max(0, Math.floor(Number(profileData?.streakShields) || 0)));
+}
+
+function setStreakShieldCount(profileData, nextCount) {
+    if (!profileData || typeof profileData !== "object") return 0;
+    const normalizedCount = Math.min(3, Math.max(0, Math.floor(Number(nextCount) || 0)));
+    profileData.streakShields = normalizedCount;
+    return normalizedCount;
+}
+
+function applyStreakShieldOnLoss(profileData, options = {}) {
+    if (!profileData || typeof profileData !== "object") return false;
+    const currentStreak = Math.max(0, Number(profileData.currentStreak) || 0);
+    if (currentStreak <= 0) return false;
+
+    const availableShields = getStreakShieldCount(profileData);
+    if (availableShields <= 0) return false;
+
+    const remainingShields = setStreakShieldCount(profileData, availableShields - 1);
+    if (!options.silent && typeof showNotification === "function") {
+        const modeLabel = options.mode ? ` in ${options.mode}` : "";
+        showNotification(`🛡️ Streak Shield activated${modeLabel}. Streak protected! (${remainingShields} left)`, "success", 4200);
+    }
+    if (typeof window.unlockAchievement === "function") {
+        window.unlockAchievement("streak_shield_used");
+    }
+    return true;
+}
+
+function getXpPotionDefinition(itemId = XP_POTION_ITEM_ID) {
+    return XP_POTION_DEFINITION_MAP[itemId] || XP_POTION_DEFINITION_MAP[XP_POTION_ITEM_ID] || XP_POTION_DEFINITIONS[0];
+}
+
+function getXpPotionCount(profileData = getCurrentProfileData(), itemId = XP_POTION_ITEM_ID) {
+    const potionDef = getXpPotionDefinition(itemId);
+    return Math.max(0, Math.floor(Number(profileData?.[potionDef.countField]) || 0));
+}
+
+function setXpPotionCount(profileData, nextCount, itemId = XP_POTION_ITEM_ID) {
+    if (!profileData || typeof profileData !== "object") return 0;
+    const potionDef = getXpPotionDefinition(itemId);
+    const normalizedCount = Math.max(0, Math.floor(Number(nextCount) || 0));
+    profileData[potionDef.countField] = normalizedCount;
+    return normalizedCount;
+}
+
+function getTotalXpPotionCount(profileData = getCurrentProfileData()) {
+    return XP_POTION_DEFINITIONS.reduce((sum, potionDef) => sum + getXpPotionCount(profileData, potionDef.itemId), 0);
+}
+
+function getXpPotionInventory(profileData = getCurrentProfileData()) {
+    return XP_POTION_DEFINITIONS.map(potionDef => ({
+        ...potionDef,
+        count: getXpPotionCount(profileData, potionDef.itemId)
+    }));
+}
+
+function getXpPotionSyncPayload(profileData = getCurrentProfileData()) {
+    return XP_POTION_DEFINITIONS.reduce((payload, potionDef) => {
+        payload[potionDef.countField] = getXpPotionCount(profileData, potionDef.itemId);
+        return payload;
+    }, {});
+}
+
+function getPersonalXpBuffMultiplier(profileData = getCurrentProfileData()) {
+    return Math.max(1, Number(profileData?.personalXpBuffMultiplier) || 1);
+}
+
+function getPersonalXpBuffEndMs(profileData = getCurrentProfileData()) {
+    const parsed = Number(profileData?.personalXpBuffEndMs);
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+}
+
+function getPersonalXpBuffSourceItemId(profileData = getCurrentProfileData()) {
+    const rawItemId = profileData?.personalXpBuffSourceItemId;
+    return XP_POTION_DEFINITION_MAP[rawItemId] ? rawItemId : "";
+}
+
+function clearExpiredPersonalXpBuff(profileData, nowMs = Date.now()) {
+    if (!profileData || typeof profileData !== "object") return false;
+    const endMs = getPersonalXpBuffEndMs(profileData);
+    if (endMs <= 0 || endMs > nowMs) return false;
+    profileData.personalXpBuffMultiplier = 1;
+    profileData.personalXpBuffEndMs = 0;
+    profileData.personalXpBuffSourceItemId = "";
+    return true;
+}
+
+function getActivePersonalXpBuff(profileData = getCurrentProfileData(), nowMs = Date.now()) {
+    const multiplier = getPersonalXpBuffMultiplier(profileData);
+    const endMs = getPersonalXpBuffEndMs(profileData);
+    if (multiplier <= 1 || endMs <= nowMs) return null;
+    const sourceItemId = getPersonalXpBuffSourceItemId(profileData);
+    const sourceDefinition = sourceItemId ? XP_POTION_DEFINITION_MAP[sourceItemId] : null;
+    return {
+        id: sourceItemId || XP_POTION_ITEM_ID,
+        label: sourceDefinition ? sourceDefinition.name : `${multiplier}x XP Booster`,
+        multiplier,
+        endMs
+    };
+}
+
+async function useXpPotion(itemId = XP_POTION_ITEM_ID) {
+    if (!currentUser) {
+        openLoginModal();
+        return false;
+    }
+
+    const potionDef = getXpPotionDefinition(itemId);
+    const profileData = getCurrentProfileData();
+    clearExpiredPersonalXpBuff(profileData);
+    const availablePotions = getXpPotionCount(profileData, potionDef.itemId);
+    if (availablePotions <= 0) {
+        showNotification(`No ${potionDef.name} available.`, "error", 3200);
+        renderCratesModal();
+        if (typeof renderConsumablesPage === "function") {
+            renderConsumablesPage();
+        }
+        return false;
+    }
+
+    const nowMs = Date.now();
+    const activeBuff = getActivePersonalXpBuff(profileData, nowMs);
+    const currentBuffMultiplier = activeBuff ? activeBuff.multiplier : 1;
+    const currentBuffEndMs = activeBuff ? activeBuff.endMs : nowMs;
+    const nextBuffMultiplier = Math.max(currentBuffMultiplier, potionDef.multiplier);
+    const nextBuffEndMs = Math.max(currentBuffEndMs, nowMs) + potionDef.durationMs;
+    const nextBuffSourceItemId = nextBuffMultiplier === potionDef.multiplier
+        ? potionDef.itemId
+        : (activeBuff?.id || potionDef.itemId);
+    const remainingPotions = setXpPotionCount(profileData, availablePotions - 1, potionDef.itemId);
+
+    profileData.personalXpBuffMultiplier = nextBuffMultiplier;
+    profileData.personalXpBuffEndMs = nextBuffEndMs;
+    profileData.personalXpBuffSourceItemId = nextBuffSourceItemId;
+    profileData.lastUpdated = nowMs;
+
+    await persistCrateProfileUpdate(profileData).catch(error => console.warn("XP booster sync failed:", error));
+    renderCratesModal();
+    if (typeof renderConsumablesPage === "function") {
+        renderConsumablesPage();
+    }
+    ensureXpEventBannerTimer();
+
+    const actionLabel = activeBuff ? "extended" : "activated";
+    const durationMinutes = Math.max(1, Math.round(potionDef.durationMs / 60000));
+    showNotification(
+        `${potionDef.emoji} ${potionDef.name} ${actionLabel}. ${nextBuffMultiplier}x XP for +${durationMinutes}m. ${remainingPotions} left.`,
+        "success",
+        4200
+    );
+    return true;
+}
+
+async function useXpBooster(itemId = XP_POTION_ITEM_ID) {
+    return useXpPotion(itemId);
+}
+
 function getCrateInstantOpenEnabled(profileData = getCurrentProfileData()) {
     return Boolean(profileData?.instantCrateOpen);
 }
@@ -1583,23 +1803,30 @@ function getActiveLimitedTimeXpEvent(nowMs = Date.now()) {
 function applyLimitedTimeXpBonus(baseXp) {
     const safeBaseXp = Math.max(0, Math.round(Number(baseXp) || 0));
     const activeEvent = getActiveLimitedTimeXpEvent();
-    if (!activeEvent) {
+    const activePersonalBuff = getActivePersonalXpBuff();
+    const globalMultiplier = activeEvent ? activeEvent.multiplier : 1;
+    const personalMultiplier = activePersonalBuff ? activePersonalBuff.multiplier : 1;
+    const combinedMultiplier = Math.max(1, globalMultiplier * personalMultiplier);
+
+    if (!activeEvent && !activePersonalBuff) {
         return {
             baseXp: safeBaseXp,
             totalXp: safeBaseXp,
             bonusXp: 0,
             multiplier: 1,
-            event: null
+            event: null,
+            personalBuff: null
         };
     }
 
-    const totalXp = Math.round(safeBaseXp * activeEvent.multiplier);
+    const totalXp = Math.round(safeBaseXp * combinedMultiplier);
     return {
         baseXp: safeBaseXp,
         totalXp,
         bonusXp: totalXp - safeBaseXp,
-        multiplier: activeEvent.multiplier,
-        event: activeEvent
+        multiplier: combinedMultiplier,
+        event: activeEvent,
+        personalBuff: activePersonalBuff
     };
 }
 
@@ -1624,7 +1851,8 @@ function updateXpEventBanner() {
     if (!banner || !timer) return;
 
     const activeEvent = getActiveLimitedTimeXpEvent();
-    if (!activeEvent) {
+    const activePersonalBuff = getActivePersonalXpBuff();
+    if (!activeEvent && !activePersonalBuff) {
         banner.classList.add("hidden");
         timer.textContent = "Event inactive";
         if (xpEventBannerInterval) {
@@ -1634,8 +1862,21 @@ function updateXpEventBanner() {
         return;
     }
 
+    const titleEl = banner.querySelector(".xp-event-title");
+    if (activeEvent && activePersonalBuff) {
+        const combinedMultiplier = activeEvent.multiplier * activePersonalBuff.multiplier;
+        if (titleEl) titleEl.textContent = `${combinedMultiplier}x XP active (${activeEvent.multiplier}x event + ${activePersonalBuff.multiplier}x booster)`;
+        const buffRemaining = formatEventTimeRemaining(activePersonalBuff.endMs - Date.now());
+        timer.textContent = `Booster ends in ${buffRemaining}`;
+    } else if (activePersonalBuff) {
+        if (titleEl) titleEl.textContent = `${activePersonalBuff.multiplier}x XP Booster active`;
+        timer.textContent = `Booster ends in ${formatEventTimeRemaining(activePersonalBuff.endMs - Date.now())}`;
+    } else if (activeEvent) {
+        if (titleEl) titleEl.textContent = `${activeEvent.multiplier}x XP gain active`;
+        timer.textContent = `${activeEvent.previewMode ? "Preview ends in" : "Ends in"} ${formatEventTimeRemaining(activeEvent.endMs - Date.now())}`;
+    }
+
     banner.classList.remove("hidden");
-    timer.textContent = `${activeEvent.previewMode ? "Preview ends in" : "Ends in"} ${formatEventTimeRemaining(activeEvent.endMs - Date.now())}`;
 }
 
 function ensureXpEventBannerTimer() {
@@ -1644,9 +1885,128 @@ function ensureXpEventBannerTimer() {
         clearInterval(xpEventBannerInterval);
         xpEventBannerInterval = null;
     }
-    if (getActiveLimitedTimeXpEvent()) {
+    if (getActiveLimitedTimeXpEvent() || getActivePersonalXpBuff()) {
         xpEventBannerInterval = setInterval(updateXpEventBanner, 1000);
     }
+}
+
+let consumablesPageInterval = null;
+
+function renderConsumablesPage() {
+    const pageRoot = document.getElementById("consumables-page");
+    if (!pageRoot) return;
+
+    const loginStateCopy = document.getElementById("consumables-login-state");
+    const loginBtn = document.getElementById("consumables-login-btn");
+    const shieldCountEl = document.getElementById("consumables-shield-count");
+    const totalPotionsEl = document.getElementById("consumables-total-potions");
+    const activeBuffEl = document.getElementById("consumables-active-buff");
+    const activeTimerEl = document.getElementById("consumables-active-timer");
+
+    if (loginBtn) {
+        loginBtn.onclick = () => openLoginModal();
+    }
+
+    const loggedIn = Boolean(currentUser);
+    pageRoot.classList.toggle("consumables-logged-out", !loggedIn);
+
+    if (!loggedIn) {
+        if (loginStateCopy) loginStateCopy.textContent = "Login to view and use your consumables.";
+        if (shieldCountEl) shieldCountEl.textContent = "0";
+        if (totalPotionsEl) totalPotionsEl.textContent = "0";
+        if (activeBuffEl) activeBuffEl.textContent = "No active booster";
+        if (activeTimerEl) activeTimerEl.textContent = "--:--:--";
+
+        pageRoot.querySelectorAll("[data-potion-item-id]").forEach(card => {
+            const countEl = card.querySelector("[data-potion-count]");
+            const statusEl = card.querySelector("[data-potion-status]");
+            const useBtn = card.querySelector("[data-potion-use-btn]");
+            if (countEl) countEl.textContent = "0";
+            if (statusEl) statusEl.textContent = "Login required";
+            if (useBtn) {
+                useBtn.disabled = true;
+                useBtn.style.opacity = "0.5";
+            }
+        });
+        return;
+    }
+
+    const profileData = getCurrentProfileData();
+    if (clearExpiredPersonalXpBuff(profileData)) {
+        saveUserProfileLocally(profileData, { skipRemoteSync: true });
+        if (typeof scheduleRemoteProfileSync === "function") {
+            scheduleRemoteProfileSync(800);
+        }
+    }
+    const potionInventory = getXpPotionInventory(profileData);
+    const activeBuff = getActivePersonalXpBuff(profileData);
+    const potionLookup = Object.fromEntries(potionInventory.map(potion => [potion.itemId, potion]));
+
+    if (loginStateCopy) loginStateCopy.textContent = "Consumables are synced to your account.";
+    if (shieldCountEl) shieldCountEl.textContent = String(getStreakShieldCount(profileData));
+    if (totalPotionsEl) totalPotionsEl.textContent = String(getTotalXpPotionCount(profileData));
+    if (activeBuffEl) {
+        activeBuffEl.textContent = activeBuff
+            ? `${activeBuff.label} (${activeBuff.multiplier}x XP)`
+            : "No active booster";
+    }
+    if (activeTimerEl) {
+        activeTimerEl.textContent = activeBuff
+            ? formatEventTimeRemaining(activeBuff.endMs - Date.now())
+            : "--:--:--";
+    }
+
+    pageRoot.querySelectorAll("[data-potion-item-id]").forEach(card => {
+        const itemId = card.getAttribute("data-potion-item-id") || "";
+        const potionDef = getXpPotionDefinition(itemId);
+        const potionInfo = potionLookup[potionDef.itemId] || { count: getXpPotionCount(profileData, potionDef.itemId) };
+        const count = Math.max(0, Number(potionInfo.count) || 0);
+        const countEl = card.querySelector("[data-potion-count]");
+        const statusEl = card.querySelector("[data-potion-status]");
+        const useBtn = card.querySelector("[data-potion-use-btn]");
+
+        if (countEl) countEl.textContent = String(count);
+        if (statusEl) {
+            if (count <= 0) {
+                statusEl.textContent = "Out of stock";
+            } else if (activeBuff && activeBuff.id === potionDef.itemId) {
+                statusEl.textContent = "Buff currently active";
+            } else if (activeBuff) {
+                statusEl.textContent = "Can stack onto active buff";
+            } else {
+                statusEl.textContent = "Ready to activate";
+            }
+        }
+        if (useBtn) {
+            useBtn.disabled = count <= 0;
+            useBtn.style.opacity = count <= 0 ? "0.5" : "1";
+            useBtn.textContent = activeBuff
+                ? `Stack ${potionDef.shortLabel}`
+                : `Use ${potionDef.shortLabel}`;
+        }
+    });
+}
+
+function ensureConsumablesPageTimer() {
+    const pageRoot = document.getElementById("consumables-page");
+    if (!pageRoot) {
+        if (consumablesPageInterval) {
+            clearInterval(consumablesPageInterval);
+            consumablesPageInterval = null;
+        }
+        return;
+    }
+
+    renderConsumablesPage();
+    if (consumablesPageInterval) return;
+    consumablesPageInterval = setInterval(() => {
+        if (!document.getElementById("consumables-page")) {
+            clearInterval(consumablesPageInterval);
+            consumablesPageInterval = null;
+            return;
+        }
+        renderConsumablesPage();
+    }, 1000);
 }
 
 function setupGlobalXpEventListener() {
@@ -1666,6 +2026,54 @@ function setupGlobalXpEventListener() {
         });
 }
 
+function getValidIndexThemeIds() {
+    return INDEX_THEME_OPTIONS.map(option => option.id);
+}
+
+function normalizeIndexThemeId(themeId = "default") {
+    const normalized = String(themeId || "").trim().toLowerCase();
+    return getValidIndexThemeIds().includes(normalized) ? normalized : "default";
+}
+
+function applyIndexTheme(themeId = "default") {
+    const body = document.body;
+    if (!body) return "default";
+
+    const resolvedThemeId = normalizeIndexThemeId(themeId);
+    getValidIndexThemeIds().forEach(id => {
+        body.classList.remove(`index-theme-${id}`);
+        body.classList.remove(`global-ui-theme-${id}`);
+    });
+    body.classList.add(`index-theme-${resolvedThemeId}`);
+    body.classList.add(`global-ui-theme-${resolvedThemeId}`);
+    localStorage.setItem("globalIndexThemeId", resolvedThemeId);
+    localStorage.setItem("globalUiThemeCache", resolvedThemeId);
+
+    return resolvedThemeId;
+}
+
+function setupGlobalIndexThemeListener() {
+    if (!db) return;
+    if (globalIndexThemeUnsubscribe) {
+        globalIndexThemeUnsubscribe();
+        globalIndexThemeUnsubscribe = null;
+    }
+
+    // Apply cached theme immediately on index while Firestore snapshot connects.
+    applyIndexTheme(localStorage.getItem("globalIndexThemeId") || "default");
+
+    globalIndexThemeUnsubscribe = db
+        .collection(GLOBAL_INDEX_THEME_CONFIG_PATH.collection)
+        .doc(GLOBAL_INDEX_THEME_CONFIG_PATH.doc)
+        .onSnapshot(snapshot => {
+            const remoteThemeId = snapshot.exists ? snapshot.data()?.themeId : "default";
+            applyIndexTheme(remoteThemeId || "default");
+        }, error => {
+            console.warn("Global index theme listener failed:", error);
+            applyIndexTheme(localStorage.getItem("globalIndexThemeId") || "default");
+        });
+}
+
 function getCrateRewardPreviewMarkup(reward) {
     if (reward.type === "theme") {
         const theme = getCardThemeMeta(reward.themeId);
@@ -1680,6 +2088,18 @@ function getCrateRewardPreviewMarkup(reward) {
         return `
             <div class="crate-reward-preview">
                 <div style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.04);padding:10px;font-size:34px;line-height:1;">${badge.emoji || "🦈"}</div>
+            </div>
+        `;
+    }
+    if (reward.type === "item") {
+        const quantity = Math.max(1, Math.floor(Number(reward.quantity) || 1));
+        const quantityLabel = quantity > 1 ? `x${quantity}` : "";
+        return `
+            <div class="crate-reward-preview">
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,0.04);padding:10px;line-height:1;">
+                    <div style="font-size:34px;">${reward.emoji || "🛡️"}</div>
+                    <div style="margin-top:6px;font-size:13px;font-weight:700;color:#dffaff;">${quantityLabel}</div>
+                </div>
             </div>
         `;
     }
@@ -1711,13 +2131,19 @@ function renderCratesModal() {
     const openBtn = document.getElementById("open-crate-btn");
     const instantToggle = document.getElementById("crate-instant-toggle");
     const pityCopy = document.getElementById("crate-pity-copy");
+    const streakShieldCopy = document.getElementById("streak-shield-copy");
+    const xpPotionCopy = document.getElementById("xp-potion-copy");
+    const consumablesCtaBtn = document.getElementById("consumables-cta-btn") || document.getElementById("use-xp-potion-btn");
     if (!countValue || !statusCopy || !openBtn || !instantToggle || !pityCopy) return;
 
     const profileData = getCurrentProfileData();
     const crateCount = getCrateInventory(profileData).reef;
-    const cratesSinceLegendary = getCratesSinceLegendary(profileData);
     const pityReady = isLegendaryPityReady(profileData);
     const cratesUntilPity = getCratesUntilLegendaryPity(profileData);
+    const streakShieldCount = getStreakShieldCount(profileData);
+    const totalPotionCount = getTotalXpPotionCount(profileData);
+    const potionInventory = getXpPotionInventory(profileData);
+    const activePotionBuff = getActivePersonalXpBuff(profileData);
 
     countValue.textContent = crateCount;
     instantToggle.checked = getCrateInstantOpenEnabled(profileData);
@@ -1725,6 +2151,24 @@ function renderCratesModal() {
     pityCopy.textContent = pityReady
         ? "Next crate is guaranteed legendary."
         : `${cratesUntilPity} crate${cratesUntilPity === 1 ? "" : "s"} until guaranteed legendary.`;
+    if (streakShieldCopy) {
+        streakShieldCopy.textContent = `🛡️ Streak Shields: ${streakShieldCount} / 3 (max)`;
+    }
+    if (xpPotionCopy) {
+        const potionSummary = potionInventory
+            .map(potion => `${potion.emoji} ${potion.shortLabel}: ${potion.count}`)
+            .join(" • ");
+        const activeSummary = activePotionBuff
+            ? `Active: ${activePotionBuff.multiplier}x for ${formatEventTimeRemaining(activePotionBuff.endMs - Date.now())}`
+            : "No active booster";
+        xpPotionCopy.textContent = `${potionSummary || "No XP boosters yet"} | ${activeSummary}`;
+    }
+    if (consumablesCtaBtn) {
+        consumablesCtaBtn.disabled = false;
+        consumablesCtaBtn.style.opacity = "1";
+        consumablesCtaBtn.textContent = `Manage Boosters (${totalPotionCount})`;
+        consumablesCtaBtn.onclick = () => navigate("consumables.html");
+    }
 
     if (crateCount <= 0) {
         statusCopy.textContent = "You don't have any crates to open.";
@@ -1826,7 +2270,7 @@ function pickCrateRewardRarity(profileData = getCurrentProfileData()) {
 }
 
 function grantCrateReward(profileData, reward) {
-    const duplicateReward = isCrateRewardOwned(profileData, reward);
+    const duplicateReward = reward.type === "item" ? false : isCrateRewardOwned(profileData, reward);
     if (reward.type === "pfp") {
         const earnedCosmetics = Array.isArray(profileData.earnedCosmetics) ? [...profileData.earnedCosmetics] : [];
         if (!duplicateReward) {
@@ -1846,6 +2290,21 @@ function grantCrateReward(profileData, reward) {
         if (!duplicateReward) {
             profileData.unlockedBadges = [...new Set([...(Array.isArray(profileData.unlockedBadges) ? profileData.unlockedBadges : ["starter"]), reward.badgeId])];
         }
+    } else if (reward.type === "item") {
+        const quantity = Math.max(1, Math.floor(Number(reward.quantity) || 1));
+        if (reward.itemId === STREAK_SHIELD_ITEM_ID) {
+            const currentShields = getStreakShieldCount(profileData);
+            const canAccept = Math.min(quantity, 3 - currentShields);
+            if (canAccept > 0) {
+                setStreakShieldCount(profileData, currentShields + canAccept);
+            }
+        } else if (XP_POTION_DEFINITION_MAP[reward.itemId]) {
+            setXpPotionCount(
+                profileData,
+                getXpPotionCount(profileData, reward.itemId) + quantity,
+                reward.itemId
+            );
+        }
     }
     return {
         profileData,
@@ -1862,6 +2321,11 @@ async function persistCrateProfileUpdate(profileData) {
         crateInventory: normalizeCrateInventory(profileData.crateInventory),
         cratesOpened: Math.max(0, Number(profileData.cratesOpened) || 0),
         cratesSinceLegendary: getCratesSinceLegendary(profileData),
+        streakShields: getStreakShieldCount(profileData),
+        ...getXpPotionSyncPayload(profileData),
+        personalXpBuffMultiplier: getPersonalXpBuffMultiplier(profileData),
+        personalXpBuffEndMs: getPersonalXpBuffEndMs(profileData),
+        personalXpBuffSourceItemId: getPersonalXpBuffSourceItemId(profileData),
         instantCrateOpen: getCrateInstantOpenEnabled(profileData),
         totalXP: Math.max(0, Number(profileData.totalXP) || 0),
         earnedCosmetics: Array.isArray(profileData.earnedCosmetics) ? profileData.earnedCosmetics : [],
@@ -1942,6 +2406,22 @@ function finalizeCrateRewardPresentation(reward, duplicateReward, duplicateXpAwa
         showNotification(`${reward.name} profile theme unlocked from a crate!`, "success", 4200);
     } else if (reward.type === "badge") {
         showNotification(`${reward.name} badge unlocked from a crate!`, "success", 4200);
+    } else if (reward.type === "item") {
+        const quantity = Math.max(1, Math.floor(Number(reward.quantity) || 1));
+        if (reward.itemId === STREAK_SHIELD_ITEM_ID) {
+            const totalShields = getStreakShieldCount();
+            if (totalShields >= 3) {
+                showNotification(`You have max streak shields (${totalShields}/3)`, "info", 4200);
+            } else {
+                showNotification(`${reward.name} +${quantity}! You now have ${totalShields}.`, "success", 4200);
+            }
+        } else if (XP_POTION_DEFINITION_MAP[reward.itemId]) {
+            const potionDef = getXpPotionDefinition(reward.itemId);
+            const totalPotions = getXpPotionCount(undefined, reward.itemId);
+            showNotification(`${reward.name} +${quantity}! ${potionDef.emoji} Total: ${totalPotions}.`, "success", 4200);
+        } else {
+            showNotification(`${reward.name} +${quantity}!`, "success", 4200);
+        }
     }
 
     if (typeof loadAvailablePFPs === "function") loadAvailablePFPs();
@@ -1959,6 +2439,9 @@ function finalizeCrateRewardPresentation(reward, duplicateReward, duplicateXpAwa
         }
     }
     renderCratesModal();
+    if (typeof renderConsumablesPage === "function") {
+        renderConsumablesPage();
+    }
 }
 
 function toggleCrateInstantOpen(enabled) {
@@ -2050,13 +2533,26 @@ window.openCrate = openCrate;
 window.toggleCrateInstantOpen = toggleCrateInstantOpen;
 window.maybeAwardCrateDrop = maybeAwardCrateDrop;
 window.getOpenedCrateCount = getOpenedCrateCount;
+window.getStreakShieldCount = getStreakShieldCount;
+window.getXpPotionCount = getXpPotionCount;
+window.getXpPotionInventory = getXpPotionInventory;
+window.getTotalXpPotionCount = getTotalXpPotionCount;
+window.useXpPotion = useXpPotion;
+window.useXpBooster = useXpBooster;
+window.applyStreakShieldOnLoss = applyStreakShieldOnLoss;
 window.getActiveLimitedTimeXpEvent = getActiveLimitedTimeXpEvent;
 window.applyLimitedTimeXpBonus = applyLimitedTimeXpBonus;
+window.renderConsumablesPage = renderConsumablesPage;
+window.ensureConsumablesPageTimer = ensureConsumablesPageTimer;
 window.forceXpEventPreview = function(enabled = true) {
     localStorage.setItem("forceXpEventPreview", enabled ? "true" : "false");
     ensureXpEventBannerTimer();
     return enabled ? "XP event preview enabled." : "XP event preview disabled.";
 };
+window.openAdminAbuseModal = openAdminAbuseModal;
+window.closeAdminAbuseModal = closeAdminAbuseModal;
+window.openAdminAbuseMenu = openAdminAbuseMenu;
+window.adminAbuse = openAdminAbuseMenu;
 
 function getCardThemeMeta(themeId) {
     return sharkPassCardThemes.find(theme => theme.id === themeId) || sharkPassCardThemes[0];
@@ -2286,7 +2782,7 @@ const allBadges = [
 ];
 
 const currentPassBadgeDefs = [
-    { id: "reef-scout", name: "Shiver", emoji: "🦈", description: "A Shark Pass badge for reaching level 3.", passLevel: 3 },
+    { id: "reef-scout", name: "Shiver", emoji: "🐟", description: "A Shark Pass badge for reaching level 3.", passLevel: 3 },
     { id: "bronze-fin", name: "Pup", emoji: "🪸", description: "A Shark Pass badge for reaching level 5.", passLevel: 5 },
     { id: "night-diver", name: "Juvenile", emoji: "🌙", description: "A Shark Pass badge for reaching level 8.", passLevel: 8 },
     { id: "abyss-explorer", name: "Oceanic", emoji: "💙", description: "A Shark Pass badge for reaching level 10.", passLevel: 10 },
@@ -2595,6 +3091,7 @@ function initializeFirebase() {
     auth = firebase.auth();
     db = firebase.firestore();
     setupGlobalXpEventListener();
+    setupGlobalIndexThemeListener();
     
     // Set up offline support detection
     window.addEventListener('online', () => {
@@ -2968,6 +3465,7 @@ async function updateAuthUI() {
         if (profileBtn) {
             profileBtn.remove();
         }
+        closeAdminAbuseModal();
         // DO NOT clear userProfile
     }
     
@@ -2976,8 +3474,15 @@ async function updateAuthUI() {
     if (authContainer) {
         updateIndexStats();
     }
+    ensureAdminAbuseVisibility();
     renderCratesButton();
     ensureXpEventBannerTimer();
+    if (typeof renderConsumablesPage === "function") {
+        renderConsumablesPage();
+    }
+    if (typeof ensureConsumablesPageTimer === "function") {
+        ensureConsumablesPageTimer();
+    }
 
     // Always refresh friends tab when profile is open and friends view is active
     const profileModal = document.getElementById('profileModal');
@@ -3080,6 +3585,9 @@ function hasMeaningfulProfileData(profile) {
         profile.duelGames ||
         profile.duelWins ||
         normalizeCrateInventory(profile.crateInventory).reef ||
+        getStreakShieldCount(profile) ||
+        getTotalXpPotionCount(profile) ||
+        getPersonalXpBuffEndMs(profile) > Date.now() ||
         (Array.isArray(profile.earnedCosmetics) && profile.earnedCosmetics.length) ||
         (profile.username && !isDefaultEmailUsername(profile.username)) ||
         (profile.profilePicture && profile.profilePicture !== "images/pfp/shark1.png")
@@ -3095,6 +3603,9 @@ function hasPersistedProfileIdentity(profile) {
         (profile.equippedBadge && profile.equippedBadge !== "starter") ||
         (profile.equippedCardTheme && profile.equippedCardTheme !== "default") ||
         normalizeCrateInventory(profile.crateInventory).reef ||
+        getStreakShieldCount(profile) ||
+        getTotalXpPotionCount(profile) ||
+        getPersonalXpBuffEndMs(profile) > Date.now() ||
         (Array.isArray(profile.earnedCosmetics) && profile.earnedCosmetics.length) ||
         (Array.isArray(profile.unlockedAchievements) && profile.unlockedAchievements.length) ||
         (Array.isArray(profile.claimedAchievements) && profile.claimedAchievements.length)
@@ -3206,6 +3717,21 @@ function normalizeStoredDateValue(rawValue) {
     return parsedDate ? getLocalDateKey(parsedDate) : "";
 }
 
+function normalizeStoredUtcDateValue(rawValue) {
+    if (typeof rawValue === "string") {
+        const value = rawValue.trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            return value;
+        }
+    }
+    const parsedDate = parseDateLikeValue(rawValue);
+    if (!parsedDate) return "";
+    const year = parsedDate.getUTCFullYear();
+    const month = String(parsedDate.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(parsedDate.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
 function getCalendarDayDifference(fromDateKey, toDateKey) {
     if (!fromDateKey || !toDateKey) return NaN;
     const fromDate = parseDateLikeValue(fromDateKey);
@@ -3221,12 +3747,55 @@ function getLocalMonthKey(dateValue = new Date()) {
     return normalizedDate ? normalizedDate.slice(0, 7) : "";
 }
 
+function getUtcDateKey(dateValue = new Date()) {
+    const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return "";
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function getUtcMonthKey(dateValue = new Date()) {
+    const utcDateKey = getUtcDateKey(dateValue);
+    return utcDateKey ? utcDateKey.slice(0, 7) : "";
+}
+
 function normalizeStoredMonthValue(rawValue) {
     if (typeof rawValue === "string" && /^\d{4}-\d{2}$/.test(rawValue.trim())) {
         return rawValue.trim();
     }
     const normalizedDate = normalizeStoredDateValue(rawValue);
     return normalizedDate ? normalizedDate.slice(0, 7) : "";
+}
+
+function normalizeStoredUtcMonthValue(rawValue) {
+    if (typeof rawValue === "string") {
+        const value = rawValue.trim();
+        if (/^\d{4}-\d{2}$/.test(value)) return value;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value.slice(0, 7);
+    }
+    const normalizedDate = normalizeStoredUtcDateValue(rawValue);
+    return normalizedDate ? normalizedDate.slice(0, 7) : "";
+}
+
+function incrementProfilePeriodWins(profileData, nowValue = new Date()) {
+    if (!profileData || typeof profileData !== "object") return profileData;
+    const todayKey = getUtcDateKey(nowValue);
+    const monthKey = getUtcMonthKey(nowValue);
+    const existingDailyKey = normalizeStoredUtcDateValue(profileData.dailyWinsUtcDate || profileData.dailyWinsDate);
+    const existingMonthlyKey = normalizeStoredUtcMonthValue(profileData.monthlyWinsUtcKey || profileData.monthlyWinsKey);
+    const dailyBase = existingDailyKey === todayKey ? (Number(profileData.dailyWins) || 0) : 0;
+    const monthlyBase = existingMonthlyKey === monthKey ? (Number(profileData.monthlyWins) || 0) : 0;
+
+    profileData.dailyWins = dailyBase + 1;
+    profileData.dailyWinsDate = todayKey;
+    profileData.dailyWinsUtcDate = todayKey;
+    profileData.monthlyWins = monthlyBase + 1;
+    profileData.monthlyWinsKey = monthKey;
+    profileData.monthlyWinsUtcKey = monthKey;
+    profileData.winPeriodVersion = 2;
+    return profileData;
 }
 
 async function getUserStatsSnapshot(statsRef) {
@@ -3256,7 +3825,8 @@ function cachePreferredUsername(username, uidOverride = null) {
 function scheduleRemoteProfileSync(delayMs = 150) {
     if (typeof firebase === "undefined" || typeof firebase.auth !== "function") return;
     const authUser = firebase.auth().currentUser;
-    if (!currentUser || !authUser || currentUser.uid !== authUser.uid || !db || typeof syncStatsToFirebase !== "function") return;
+    if (!authUser || !db || typeof syncStatsToFirebase !== "function") return;
+    if (currentUser && currentUser.uid !== authUser.uid) return;
     if (pendingProfileSyncTimeout) {
         clearTimeout(pendingProfileSyncTimeout);
     }
@@ -3406,6 +3976,48 @@ function mergeProfilesSafely(localProfile, firebaseData) {
     const preferredInstantCrateOpen = localUpdatedMs >= firebaseUpdatedMs
         ? getCrateInstantOpenEnabled(localProfile)
         : getCrateInstantOpenEnabled(firebaseData);
+    const preferredStreakShields = localUpdatedMs >= firebaseUpdatedMs
+        ? getStreakShieldCount(localProfile)
+        : getStreakShieldCount(firebaseData);
+    const preferredXpPotionCounts = XP_POTION_DEFINITIONS.reduce((counts, potionDef) => {
+        counts[potionDef.countField] = localUpdatedMs >= firebaseUpdatedMs
+            ? getXpPotionCount(localProfile, potionDef.itemId)
+            : getXpPotionCount(firebaseData, potionDef.itemId);
+        return counts;
+    }, {});
+    const preferredPersonalXpBuffMultiplier = localUpdatedMs >= firebaseUpdatedMs
+        ? getPersonalXpBuffMultiplier(localProfile)
+        : getPersonalXpBuffMultiplier(firebaseData);
+    const preferredPersonalXpBuffEndMs = localUpdatedMs >= firebaseUpdatedMs
+        ? getPersonalXpBuffEndMs(localProfile)
+        : getPersonalXpBuffEndMs(firebaseData);
+    const preferredPersonalXpBuffSourceItemId = localUpdatedMs >= firebaseUpdatedMs
+        ? getPersonalXpBuffSourceItemId(localProfile)
+        : getPersonalXpBuffSourceItemId(firebaseData);
+
+    const localDailyWinsDate = normalizeStoredUtcDateValue(localProfile.dailyWinsUtcDate || localProfile.dailyWinsDate);
+    const remoteDailyWinsDate = normalizeStoredUtcDateValue(firebaseData.dailyWinsUtcDate || firebaseData.dailyWinsDate);
+    const localDailyWins = Number(localProfile.dailyWins) || 0;
+    const remoteDailyWins = Number(firebaseData.dailyWins) || 0;
+    const mergedDailyWinsDate = remoteDailyWinsDate || localDailyWinsDate || "";
+    const mergedDailyWins = mergedDailyWinsDate
+        ? Math.max(
+            remoteDailyWinsDate === mergedDailyWinsDate ? remoteDailyWins : 0,
+            localDailyWinsDate === mergedDailyWinsDate ? localDailyWins : 0
+        )
+        : 0;
+
+    const localMonthlyWinsKey = normalizeStoredUtcMonthValue(localProfile.monthlyWinsUtcKey || localProfile.monthlyWinsKey);
+    const remoteMonthlyWinsKey = normalizeStoredUtcMonthValue(firebaseData.monthlyWinsUtcKey || firebaseData.monthlyWinsKey);
+    const localMonthlyWins = Number(localProfile.monthlyWins) || 0;
+    const remoteMonthlyWins = Number(firebaseData.monthlyWins) || 0;
+    const mergedMonthlyWinsKey = remoteMonthlyWinsKey || localMonthlyWinsKey || "";
+    const mergedMonthlyWins = mergedMonthlyWinsKey
+        ? Math.max(
+            remoteMonthlyWinsKey === mergedMonthlyWinsKey ? remoteMonthlyWins : 0,
+            localMonthlyWinsKey === mergedMonthlyWinsKey ? localMonthlyWins : 0
+        )
+        : 0;
 
     return {
         uid: currentUser.uid,
@@ -3428,11 +4040,23 @@ function mergeProfilesSafely(localProfile, firebaseData) {
         })(),
         currentStreak: maxNumeric(localProfile.currentStreak, firebaseData.currentStreak),
         highestStreak: maxNumeric(localProfile.highestStreak, firebaseData.highestStreak),
+        dailyWins: mergedDailyWins,
+        dailyWinsDate: mergedDailyWinsDate,
+        dailyWinsUtcDate: mergedDailyWinsDate,
+        monthlyWins: mergedMonthlyWins,
+        monthlyWinsKey: mergedMonthlyWinsKey,
+        monthlyWinsUtcKey: mergedMonthlyWinsKey,
+        winPeriodVersion: Math.max(Number(localProfile.winPeriodVersion) || 0, Number(firebaseData.winPeriodVersion) || 0),
         totalXP: maxNumeric(localProfile.totalXP, firebaseData.totalXP || firebaseData.totalGuesses),
         duelGames: maxNumeric(localProfile.duelGames, firebaseData.duelGames),
         duelWins: maxNumeric(localProfile.duelWins, firebaseData.duelWins),
         cratesOpened: preferredCratesOpened,
         cratesSinceLegendary: preferredCratesSinceLegendary,
+        streakShields: preferredStreakShields,
+        ...preferredXpPotionCounts,
+        personalXpBuffMultiplier: preferredPersonalXpBuffMultiplier,
+        personalXpBuffEndMs: preferredPersonalXpBuffEndMs,
+        personalXpBuffSourceItemId: preferredPersonalXpBuffSourceItemId,
         instantCrateOpen: preferredInstantCrateOpen,
         earnedCosmetics: getUnifiedCosmeticList(localProfile.earnedCosmetics, firebaseData.earnedCosmetics, "imagePath"),
         testerBadgeUnlocked: Boolean(firebaseData.testerBadgeUnlocked || localProfile.testerBadgeUnlocked),
@@ -3457,9 +4081,9 @@ async function loadUserProfile(options = {}) {
         // Load from userStats collection
         const statsRef = db.collection("userStats").doc(authUser.uid);
         const { snapshot: statsSnap, fromServer } = await getUserStatsSnapshot(statsRef);
-        if (fromServer) {
-            lastServerHydratedProfileUid = authUser.uid;
-        }
+        // Accept cache-backed hydration as valid so stat sync is not blocked when
+        // a direct server read is temporarily unavailable.
+        lastServerHydratedProfileUid = authUser.uid;
         let userData = {};
         let firebaseData = null;
         // If Firestore doc exists and has at least one stat field, use it as source of truth
@@ -3542,6 +4166,14 @@ async function loadUserProfile(options = {}) {
                 duelWins: 0,
                 cratesOpened: 0,
                 cratesSinceLegendary: 0,
+                streakShields: 0,
+                ...XP_POTION_DEFINITIONS.reduce((counts, potionDef) => {
+                    counts[potionDef.countField] = 0;
+                    return counts;
+                }, {}),
+                personalXpBuffMultiplier: 1,
+                personalXpBuffEndMs: 0,
+                personalXpBuffSourceItemId: "",
                 instantCrateOpen: false,
                 earnedCosmetics: [],
                 testerBadgeUnlocked: false,
@@ -3688,17 +4320,21 @@ window.showProfileTab = function(tab) {
     const statsTab = document.getElementById('stats-tab');
     const recentTab = document.getElementById('recent-tab');
     const friendsTab = document.getElementById('friends-tab');
+    const consumablesTab = document.getElementById('consumables-tab');
     const statsBtn = document.getElementById('stats-tab-btn');
     const recentBtn = document.getElementById('recent-tab-btn');
     const friendsBtn = document.getElementById('friends-tab-btn');
+    const consumablesBtn = document.getElementById('consumables-tab-btn');
 
     if (statsTab) statsTab.style.display = tab === 'stats' ? 'block' : 'none';
     if (recentTab) recentTab.style.display = tab === 'recent' ? 'block' : 'none';
     if (friendsTab) friendsTab.style.display = tab === 'friends' ? 'block' : 'none';
+    if (consumablesTab) consumablesTab.style.display = tab === 'consumables' ? 'block' : 'none';
 
     if (statsBtn) statsBtn.classList.toggle('active', tab === 'stats');
     if (recentBtn) recentBtn.classList.toggle('active', tab === 'recent');
     if (friendsBtn) friendsBtn.classList.toggle('active', tab === 'friends');
+    if (consumablesBtn) consumablesBtn.classList.toggle('active', tab === 'consumables');
 
     if (tab === 'stats') {
         animateStatsFromLastView();
@@ -3707,6 +4343,8 @@ window.showProfileTab = function(tab) {
         renderRecentGames();
     } else if (tab === 'friends') {
         populateFriendsTab();
+    } else if (tab === 'consumables') {
+        renderConsumablesPage();
     }
 
     // Save current tab for persistent tab selection (optional QoL)
@@ -3956,6 +4594,11 @@ async function signupUser() {
             equippedCardTheme: localProfile.equippedCardTheme || "default",
             crateInventory: normalizeCrateInventory(localProfile.crateInventory),
             cratesOpened: Math.max(0, Number(localProfile.cratesOpened) || 0),
+            streakShields: getStreakShieldCount(localProfile),
+            ...getXpPotionSyncPayload(localProfile),
+            personalXpBuffMultiplier: getPersonalXpBuffMultiplier(localProfile),
+            personalXpBuffEndMs: getPersonalXpBuffEndMs(localProfile),
+            personalXpBuffSourceItemId: getPersonalXpBuffSourceItemId(localProfile),
             username: username,
             email: email,
             avatar: "🦈",
@@ -4003,22 +4646,39 @@ function logoutUser() {
 }
 
 function openLoginModal() {
-    document.getElementById("loginModal").classList.remove("hidden");
+    const loginModal = document.getElementById("loginModal");
+    if (loginModal) {
+        loginModal.classList.remove("hidden");
+    }
 }
 
 function closeLoginModal() {
-    document.getElementById("loginModal").classList.add("hidden");
-    document.getElementById("login-email").value = "";
-    document.getElementById("login-password").value = "";
-    document.getElementById("signup-email").value = "";
-    document.getElementById("signup-password").value = "";
-    document.getElementById("signup-username").value = "";
-    document.getElementById("auth-error").style.display = "none";
+    const loginModal = document.getElementById("loginModal");
+    if (loginModal) {
+        loginModal.classList.add("hidden");
+    }
+    const loginEmail = document.getElementById("login-email");
+    const loginPassword = document.getElementById("login-password");
+    const signupEmail = document.getElementById("signup-email");
+    const signupPassword = document.getElementById("signup-password");
+    const signupUsername = document.getElementById("signup-username");
+    const authError = document.getElementById("auth-error");
+    if (loginEmail) loginEmail.value = "";
+    if (loginPassword) loginPassword.value = "";
+    if (signupEmail) signupEmail.value = "";
+    if (signupPassword) signupPassword.value = "";
+    if (signupUsername) signupUsername.value = "";
+    if (authError) authError.style.display = "none";
     switchToLogin();
 }
 
 async function openProfileModal() {
     if (currentUser) {
+        const profileModal = document.getElementById("profileModal");
+        if (!profileModal) {
+            showNotification("Profile editing is available on the home page.", "info", 3000);
+            return;
+        }
         // Reload profile data when opening modal
         await loadUserProfile().catch(err => console.error("Error loading profile:", err));
         if (document.getElementById("username-edit-container")) {
@@ -4026,8 +4686,9 @@ async function openProfileModal() {
         }
         updateProfileBadgeUI();
         renderThemeSelection();
+        ensureAdminAbuseVisibility();
         await ensureFriendDocument(currentUser.uid).catch(err => console.error("Friend network init failed:", err));
-        document.getElementById("profileModal").classList.remove("hidden");
+        profileModal.classList.remove("hidden");
     }
 }
 
@@ -4086,7 +4747,40 @@ function updateFriendProfileDisplay(profileData, uid) {
 }
 
 function closeProfileModal() {
-    document.getElementById("profileModal").classList.add("hidden");
+    const profileModal = document.getElementById("profileModal");
+    if (profileModal) {
+        profileModal.classList.add("hidden");
+    }
+}
+
+function ensureAdminAbuseVisibility() {
+    const adminBtn = document.getElementById("open-admin-abuse-btn");
+    if (!adminBtn) return;
+
+    const isDeveloper = Boolean(currentUser && isDeveloperUid(currentUser.uid));
+    adminBtn.classList.toggle("hidden", !isDeveloper);
+}
+
+function openAdminAbuseModal() {
+    if (!currentUser || !isDeveloperUid(currentUser.uid)) {
+        showNotification("Developer access is required for Admin Abuse.", "error", 3400);
+        return;
+    }
+    const modal = document.getElementById("adminAbuseModal");
+    if (!modal) return;
+    modal.classList.remove("hidden");
+    if (typeof refreshAdminAbusePanel === "function") {
+        refreshAdminAbusePanel().catch(error => {
+            console.warn("Unable to load admin abuse panel state:", error);
+        });
+    }
+}
+
+function closeAdminAbuseModal() {
+    const modal = document.getElementById("adminAbuseModal");
+    if (modal) {
+        modal.classList.add("hidden");
+    }
 }
 
 function openBadgeModal() {
@@ -4128,13 +4822,17 @@ function closeProfilePicModal() {
 }
 
 function switchToLogin() {
-    document.querySelector(".login-form").classList.remove("hidden");
-    document.querySelector(".signup-form").classList.add("hidden");
+    const loginForm = document.querySelector(".login-form");
+    const signupForm = document.querySelector(".signup-form");
+    if (loginForm) loginForm.classList.remove("hidden");
+    if (signupForm) signupForm.classList.add("hidden");
 }
 
 function switchToSignup() {
-    document.querySelector(".login-form").classList.add("hidden");
-    document.querySelector(".signup-form").classList.remove("hidden");
+    const loginForm = document.querySelector(".login-form");
+    const signupForm = document.querySelector(".signup-form");
+    if (loginForm) loginForm.classList.add("hidden");
+    if (signupForm) signupForm.classList.remove("hidden");
 }
 
 async function setProfilePicture(picturePath) {
@@ -4626,12 +5324,10 @@ async function syncStatsToFirebase() {
         const remoteData = remoteSnap.exists ? (remoteSnap.data() || {}) : {};
         const remoteHasData = remoteSnap.exists && Object.keys(remoteData).length > 0;
 
-        // Safety valve: never write profile stats when our remote read is cache-fallback only.
-        // Waiting for a server-backed read avoids accidental cloud resets on login.
+        // Server reads can occasionally fall back to cache. Continue syncing with
+        // merge-safe logic so leaderboard period counters still update after wins.
         if (!fromServer) {
-            console.warn("Skipping sync: userStats read was cache-fallback (server not confirmed).");
-            scheduleRemoteProfileSync(3000);
-            return;
+            console.warn("Proceeding with cache-backed userStats snapshot during sync.");
         }
 
         // If remote appears empty, only allow sync when local has meaningful numeric progress.
@@ -4686,6 +5382,11 @@ async function syncStatsToFirebase() {
             duelWins: mergedProfile.duelWins || 0,
             cratesOpened: mergedProfile.cratesOpened || 0,
             cratesSinceLegendary: getCratesSinceLegendary(mergedProfile),
+            streakShields: getStreakShieldCount(mergedProfile),
+            ...getXpPotionSyncPayload(mergedProfile),
+            personalXpBuffMultiplier: getPersonalXpBuffMultiplier(mergedProfile),
+            personalXpBuffEndMs: getPersonalXpBuffEndMs(mergedProfile),
+            personalXpBuffSourceItemId: getPersonalXpBuffSourceItemId(mergedProfile),
             instantCrateOpen: getCrateInstantOpenEnabled(mergedProfile),
             username: mergedProfile.username || getStoredPreferredUsername() || authUser.email.split("@")[0],
             profilePic: mergedProfile.profilePicture || "images/pfp/shark1.png",
@@ -4701,42 +5402,27 @@ async function syncStatsToFirebase() {
         const hasReliableRemoteWins = Number.isFinite(remoteWinsParsed);
         const remoteWins = hasReliableRemoteWins ? remoteWinsParsed : currentWins;
         const winsDelta = Math.max(0, currentWins - remoteWins);
-        const todayKey = getLocalDateKey();
-        const monthKey = getLocalMonthKey(todayKey);
-        const remoteDailyWinsDate = normalizeStoredDateValue(remoteData.dailyWinsDate);
-        const remoteMonthlyWinsKey = normalizeStoredMonthValue(remoteData.monthlyWinsKey);
+        const todayKey = getUtcDateKey();
+        const monthKey = getUtcMonthKey();
+        const remoteDailyWinsDate = normalizeStoredUtcDateValue(remoteData.dailyWinsUtcDate || remoteData.dailyWinsDate);
+        const remoteMonthlyWinsKey = normalizeStoredUtcMonthValue(remoteData.monthlyWinsUtcKey || remoteData.monthlyWinsKey);
         const remoteDailyWins = Number(remoteData.dailyWins) || 0;
         const remoteMonthlyWins = Number(remoteData.monthlyWins) || 0;
-        const remoteWinPeriodVersion = Number(remoteData.winPeriodVersion) || 0;
-        const hasWinPeriodV2 = remoteWinPeriodVersion >= 2;
+        const localDailyWinsDate = normalizeStoredUtcDateValue(profileData.dailyWinsUtcDate || profileData.dailyWinsDate);
+        const localMonthlyWinsKey = normalizeStoredUtcMonthValue(profileData.monthlyWinsUtcKey || profileData.monthlyWinsKey);
+        const localDailyWins = Number(profileData.dailyWins) || 0;
+        const localMonthlyWins = Number(profileData.monthlyWins) || 0;
 
-        let dailyBaseWins = remoteDailyWinsDate === todayKey ? remoteDailyWins : 0;
-        let monthlyBaseWins = remoteMonthlyWinsKey === monthKey ? remoteMonthlyWins : 0;
+        const remoteDailyBaseWins = remoteDailyWinsDate === todayKey ? remoteDailyWins : 0;
+        const remoteMonthlyBaseWins = remoteMonthlyWinsKey === monthKey ? remoteMonthlyWins : 0;
+        const localDailyBaseWins = localDailyWinsDate === todayKey ? localDailyWins : 0;
+        const localMonthlyBaseWins = localMonthlyWinsKey === monthKey ? localMonthlyWins : 0;
 
-        if (!hasWinPeriodV2) {
-            // Keep plausible legacy period values so players don't disappear from boards,
-            // while stripping obvious all-time-seeded values on high-win accounts.
-            dailyBaseWins = (
-                remoteDailyWinsDate === todayKey
-                && remoteDailyWins > 0
-                && remoteDailyWins <= currentWins
-            ) ? remoteDailyWins : 0;
-            monthlyBaseWins = (
-                remoteMonthlyWinsKey === monthKey
-                && remoteMonthlyWins > 0
-                && remoteMonthlyWins <= currentWins
-            ) ? remoteMonthlyWins : 0;
+        const computedDailyFromDelta = remoteDailyBaseWins + winsDelta;
+        const computedMonthlyFromDelta = remoteMonthlyBaseWins + winsDelta;
 
-            if (remoteDailyWinsDate === todayKey && remoteDailyWins === currentWins && currentWins >= 25) {
-                dailyBaseWins = 0;
-            }
-            if (remoteMonthlyWinsKey === monthKey && remoteMonthlyWins === currentWins && currentWins >= 40) {
-                monthlyBaseWins = 0;
-            }
-        }
-
-        let nextDailyWins = dailyBaseWins + winsDelta;
-        let nextMonthlyWins = monthlyBaseWins + winsDelta;
+        let nextDailyWins = Math.max(remoteDailyBaseWins, localDailyBaseWins, computedDailyFromDelta);
+        let nextMonthlyWins = Math.max(remoteMonthlyBaseWins, localMonthlyBaseWins, computedMonthlyFromDelta);
         if (!Number.isFinite(nextDailyWins) || nextDailyWins < 0) nextDailyWins = 0;
         if (!Number.isFinite(nextMonthlyWins) || nextMonthlyWins < 0) nextMonthlyWins = 0;
         if (nextDailyWins > currentWins) nextDailyWins = currentWins;
@@ -4744,8 +5430,10 @@ async function syncStatsToFirebase() {
 
         stats.dailyWins = nextDailyWins;
         stats.dailyWinsDate = todayKey;
+        stats.dailyWinsUtcDate = todayKey;
         stats.monthlyWins = nextMonthlyWins;
         stats.monthlyWinsKey = monthKey;
+        stats.monthlyWinsUtcKey = monthKey;
         stats.winPeriodVersion = 2;
 
         Object.assign(stats, buildCosmeticSyncPayload(mergedProfile));
@@ -5148,6 +5836,13 @@ document.addEventListener("DOMContentLoaded", function() {
     if (currentUser) {
         loadUserProfile().catch(err => console.log("Initial profile load skipped:", err));
     }
+
+    if (typeof renderConsumablesPage === "function") {
+        renderConsumablesPage();
+    }
+    if (typeof ensureConsumablesPageTimer === "function") {
+        ensureConsumablesPageTimer();
+    }
 });
 
 // ----- REDEEM CODE FUNCTIONS -----
@@ -5385,20 +6080,405 @@ async function setLevel(level) {
     }
 }
 
+function isDeveloperSessionActive() {
+    return Boolean(currentUser && isDeveloperUid(currentUser.uid));
+}
+
+function setAdminAbuseStatus(elementId, message, options = {}) {
+    const statusEl = document.getElementById(elementId);
+    if (!statusEl) return;
+    statusEl.textContent = message;
+    statusEl.classList.toggle("error", Boolean(options.error));
+}
+
+function getAdminPositiveCountValue(elementId, fallback = 1) {
+    const inputEl = document.getElementById(elementId);
+    const parsed = Math.floor(Number(inputEl?.value));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function formatAdminDateTime(timestamp) {
+    const parsed = Number(timestamp);
+    if (!Number.isFinite(parsed) || parsed <= 0) return "unknown time";
+    return new Date(parsed).toLocaleString();
+}
+
+function normalizeGlobalMessageType(type = "info") {
+    const normalized = String(type || "").trim().toLowerCase();
+    if (normalized === "event" || normalized === "warning") return normalized;
+    return "info";
+}
+
+async function setGlobalIndexTheme(themeId = "default") {
+    if (!isDeveloperSessionActive()) {
+        throw new Error("Developer access required.");
+    }
+    if (!db) {
+        throw new Error("Firestore is not ready yet.");
+    }
+
+    const resolvedThemeId = normalizeIndexThemeId(themeId);
+    const themeMeta = INDEX_THEME_OPTIONS.find(option => option.id === resolvedThemeId) || INDEX_THEME_OPTIONS[0];
+    const payload = {
+        themeId: resolvedThemeId,
+        themeName: themeMeta?.name || resolvedThemeId,
+        enabled: true,
+        updatedAt: Date.now(),
+        updatedBy: currentUser.uid
+    };
+
+    await db.collection(GLOBAL_INDEX_THEME_CONFIG_PATH.collection)
+        .doc(GLOBAL_INDEX_THEME_CONFIG_PATH.doc)
+        .set(payload, { merge: true });
+
+    applyIndexTheme(resolvedThemeId);
+    return payload;
+}
+
+async function setGlobalMessageConfig(message = "", type = "info") {
+    if (!isDeveloperSessionActive()) {
+        throw new Error("Developer access required.");
+    }
+    if (!db) {
+        throw new Error("Firestore is not ready yet.");
+    }
+
+    const trimmedMessage = String(message || "").trim();
+    const normalizedType = normalizeGlobalMessageType(type);
+    const payload = {
+        enabled: trimmedMessage.length > 0,
+        message: trimmedMessage,
+        type: normalizedType,
+        updatedAt: Date.now(),
+        updatedBy: currentUser.uid
+    };
+
+    await db.collection(GLOBAL_MESSAGE_CONFIG_PATH.collection)
+        .doc(GLOBAL_MESSAGE_CONFIG_PATH.doc)
+        .set(payload, { merge: true });
+
+    return payload;
+}
+
+const ACTIVE_PLAYER_WINDOW_MS = 5 * 60 * 1000;
+
+async function runActiveUserStatsBatch(updateBuilder, options = {}) {
+    if (!isDeveloperSessionActive()) {
+        throw new Error("Developer access required.");
+    }
+    if (!db) {
+        throw new Error("Firestore is not ready yet.");
+    }
+
+    const nowMs = Date.now();
+    const activeWindowMs = Math.max(60 * 1000, Number(options.activeWindowMs) || ACTIVE_PLAYER_WINDOW_MS);
+    const activeCutoffMs = nowMs - activeWindowMs;
+
+    const snapshot = await db
+        .collection("userStats")
+        .where("lastActive", ">=", activeCutoffMs)
+        .get();
+
+    if (snapshot.empty) {
+        return {
+            updatedUsers: 0,
+            activeCutoffMs,
+            activeWindowMs
+        };
+    }
+
+    const docs = snapshot.docs;
+    const chunkSize = 450;
+    for (let start = 0; start < docs.length; start += chunkSize) {
+        const batch = db.batch();
+        docs.slice(start, start + chunkSize).forEach(doc => {
+            const updatePayload = updateBuilder(doc) || {};
+            batch.update(doc.ref, updatePayload);
+        });
+        await batch.commit();
+    }
+
+    return {
+        updatedUsers: docs.length,
+        activeCutoffMs,
+        activeWindowMs
+    };
+}
+
+async function grantGlobalCrates(amount = 1) {
+    const count = Math.floor(Number(amount));
+    if (!Number.isFinite(count) || count <= 0) {
+        throw new Error("Invalid crate amount.");
+    }
+    const nowMs = Date.now();
+    return runActiveUserStatsBatch(() => ({
+        "crateInventory.reef": firebase.firestore.FieldValue.increment(count),
+        lastUpdated: nowMs
+    }));
+}
+
+async function grantGlobalStreakShields(amount = 1) {
+    const count = Math.floor(Number(amount));
+    if (!Number.isFinite(count) || count <= 0) {
+        throw new Error("Invalid streak shield amount.");
+    }
+    const nowMs = Date.now();
+    return runActiveUserStatsBatch(() => ({
+        streakShields: firebase.firestore.FieldValue.increment(count),
+        lastUpdated: nowMs
+    }));
+}
+
+async function grantGlobalBoosters(amount = 1, itemId = XP_POTION_ITEM_ID) {
+    const count = Math.floor(Number(amount));
+    if (!Number.isFinite(count) || count <= 0) {
+        throw new Error("Invalid booster amount.");
+    }
+    const potionDef = getXpPotionDefinition(itemId);
+    const nowMs = Date.now();
+    const batchResult = await runActiveUserStatsBatch(() => ({
+        [potionDef.countField]: firebase.firestore.FieldValue.increment(count),
+        lastUpdated: nowMs
+    }));
+    return {
+        ...batchResult,
+        potionDef
+    };
+}
+
+async function refreshAdminAbusePanel() {
+    if (!isDeveloperSessionActive() || !db) return false;
+
+    const [xpDoc, themeDoc, messageDoc] = await Promise.all([
+        db.collection(GLOBAL_XP_EVENT_CONFIG_PATH.collection).doc(GLOBAL_XP_EVENT_CONFIG_PATH.doc).get(),
+        db.collection(GLOBAL_INDEX_THEME_CONFIG_PATH.collection).doc(GLOBAL_INDEX_THEME_CONFIG_PATH.doc).get(),
+        db.collection(GLOBAL_MESSAGE_CONFIG_PATH.collection).doc(GLOBAL_MESSAGE_CONFIG_PATH.doc).get()
+    ]);
+
+    const xpData = xpDoc.exists ? (xpDoc.data() || {}) : {};
+    const themeData = themeDoc.exists ? (themeDoc.data() || {}) : {};
+    const messageData = messageDoc.exists ? (messageDoc.data() || {}) : {};
+
+    const themeSelect = document.getElementById("admin-index-theme-select");
+    if (themeSelect) {
+        themeSelect.value = normalizeIndexThemeId(themeData.themeId || "default");
+    }
+
+    const messageInput = document.getElementById("admin-global-message-input");
+    if (messageInput) {
+        messageInput.value = String(messageData.message || "");
+    }
+
+    const messageTypeSelect = document.getElementById("admin-global-message-type");
+    if (messageTypeSelect) {
+        messageTypeSelect.value = normalizeGlobalMessageType(messageData.type || "info");
+    }
+
+    if (xpData.enabled) {
+        setAdminAbuseStatus(
+            "admin-xp-status",
+            `Global 2x XP is live until ${formatAdminDateTime(xpData.endMs)}.`
+        );
+    } else {
+        setAdminAbuseStatus("admin-xp-status", "Global 2x XP is currently off.");
+    }
+
+    const themeName = INDEX_THEME_OPTIONS.find(option => option.id === normalizeIndexThemeId(themeData.themeId || "default"))?.name || "Default Ocean";
+    setAdminAbuseStatus(
+        "admin-theme-status",
+        `Current index theme: ${themeName}.`
+    );
+
+    if (messageData.enabled && messageData.message) {
+        setAdminAbuseStatus(
+            "admin-message-status",
+            `Live message (${normalizeGlobalMessageType(messageData.type)}): ${String(messageData.message).slice(0, 120)}`
+        );
+    } else {
+        setAdminAbuseStatus("admin-message-status", "No global message is active.");
+    }
+
+    return true;
+}
+
+async function adminStartGlobalXpEvent() {
+    if (!isDeveloperSessionActive()) {
+        showNotification("Developer access required.", "error", 3000);
+        return;
+    }
+    const hours = getAdminPositiveCountValue("admin-global-xp-hours", 24);
+    setAdminAbuseStatus("admin-xp-status", "Starting global 2x XP...");
+    try {
+        const eventConfig = await startGlobalDoubleXpEvent(hours);
+        if (!eventConfig) {
+            setAdminAbuseStatus("admin-xp-status", "Could not start global 2x XP. Check console logs.", { error: true });
+            return;
+        }
+        const endLabel = formatAdminDateTime(eventConfig.endMs);
+        setAdminAbuseStatus("admin-xp-status", `Global 2x XP started for ${hours}h. Ends ${endLabel}.`);
+        showNotification(`Global 2x XP started for ${hours} hour${hours === 1 ? "" : "s"}.`, "success", 3200);
+    } catch (error) {
+        setAdminAbuseStatus("admin-xp-status", `Failed to start XP event: ${error.message || error}`, { error: true });
+    }
+}
+
+async function adminStopGlobalXpEvent() {
+    if (!isDeveloperSessionActive()) {
+        showNotification("Developer access required.", "error", 3000);
+        return;
+    }
+    setAdminAbuseStatus("admin-xp-status", "Stopping global 2x XP...");
+    try {
+        const update = await stopGlobalDoubleXpEvent();
+        if (!update) {
+            setAdminAbuseStatus("admin-xp-status", "Could not stop global 2x XP. Check console logs.", { error: true });
+            return;
+        }
+        setAdminAbuseStatus("admin-xp-status", `Global 2x XP stopped at ${formatAdminDateTime(update.endMs)}.`);
+        showNotification("Global 2x XP stopped.", "success", 3000);
+    } catch (error) {
+        setAdminAbuseStatus("admin-xp-status", `Failed to stop XP event: ${error.message || error}`, { error: true });
+    }
+}
+
+async function adminGrantGlobalCrates() {
+    if (!isDeveloperSessionActive()) {
+        showNotification("Developer access required.", "error", 3000);
+        return;
+    }
+    const amount = getAdminPositiveCountValue("admin-grant-crates-count", 1);
+    setAdminAbuseStatus("admin-grant-status", `Granting ${amount} crate${amount === 1 ? "" : "s"} to active players...`);
+    try {
+        const result = await grantGlobalCrates(amount);
+        const activeMinutes = Math.round(result.activeWindowMs / 60000);
+        setAdminAbuseStatus(
+            "admin-grant-status",
+            `Granted ${amount} crate${amount === 1 ? "" : "s"} to ${result.updatedUsers} active player${result.updatedUsers === 1 ? "" : "s"} (last ${activeMinutes}m).`
+        );
+        showNotification(`Granted crates to ${result.updatedUsers} active player${result.updatedUsers === 1 ? "" : "s"}.`, "success", 3400);
+    } catch (error) {
+        setAdminAbuseStatus("admin-grant-status", `Crate grant failed: ${error.message || error}`, { error: true });
+    }
+}
+
+async function adminGrantGlobalStreakShields() {
+    if (!isDeveloperSessionActive()) {
+        showNotification("Developer access required.", "error", 3000);
+        return;
+    }
+    const amount = getAdminPositiveCountValue("admin-grant-shields-count", 1);
+    setAdminAbuseStatus("admin-grant-status", `Granting ${amount} streak shield${amount === 1 ? "" : "s"} to active players...`);
+    try {
+        const result = await grantGlobalStreakShields(amount);
+        const activeMinutes = Math.round(result.activeWindowMs / 60000);
+        setAdminAbuseStatus(
+            "admin-grant-status",
+            `Granted ${amount} streak shield${amount === 1 ? "" : "s"} to ${result.updatedUsers} active player${result.updatedUsers === 1 ? "" : "s"} (last ${activeMinutes}m).`
+        );
+        showNotification(`Granted streak shields to ${result.updatedUsers} active player${result.updatedUsers === 1 ? "" : "s"}.`, "success", 3400);
+    } catch (error) {
+        setAdminAbuseStatus("admin-grant-status", `Shield grant failed: ${error.message || error}`, { error: true });
+    }
+}
+
+async function adminGrantGlobalBoosters() {
+    if (!isDeveloperSessionActive()) {
+        showNotification("Developer access required.", "error", 3000);
+        return;
+    }
+    const amount = getAdminPositiveCountValue("admin-grant-boosters-count", 1);
+    const boosterTypeSelect = document.getElementById("admin-grant-booster-type");
+    const itemId = boosterTypeSelect?.value || XP_POTION_ITEM_ID;
+    setAdminAbuseStatus("admin-grant-status", "Granting boosters to active players...");
+    try {
+        const result = await grantGlobalBoosters(amount, itemId);
+        const activeMinutes = Math.round(result.activeWindowMs / 60000);
+        setAdminAbuseStatus(
+            "admin-grant-status",
+            `Granted ${amount} ${result.potionDef.name}${amount === 1 ? "" : "s"} to ${result.updatedUsers} active player${result.updatedUsers === 1 ? "" : "s"} (last ${activeMinutes}m).`
+        );
+        showNotification(`Granted boosters to ${result.updatedUsers} active player${result.updatedUsers === 1 ? "" : "s"}.`, "success", 3400);
+    } catch (error) {
+        setAdminAbuseStatus("admin-grant-status", `Booster grant failed: ${error.message || error}`, { error: true });
+    }
+}
+
+async function adminApplyIndexTheme() {
+    if (!isDeveloperSessionActive()) {
+        showNotification("Developer access required.", "error", 3000);
+        return;
+    }
+    const themeSelect = document.getElementById("admin-index-theme-select");
+    const themeId = themeSelect?.value || "default";
+    setAdminAbuseStatus("admin-theme-status", "Applying index theme...");
+    try {
+        const payload = await setGlobalIndexTheme(themeId);
+        setAdminAbuseStatus("admin-theme-status", `Index theme set to ${payload.themeName}.`);
+        showNotification(`Index theme changed to ${payload.themeName}.`, "success", 3200);
+    } catch (error) {
+        setAdminAbuseStatus("admin-theme-status", `Theme update failed: ${error.message || error}`, { error: true });
+    }
+}
+
+async function adminSetGlobalMessage() {
+    if (!isDeveloperSessionActive()) {
+        showNotification("Developer access required.", "error", 3000);
+        return;
+    }
+    const messageInput = document.getElementById("admin-global-message-input");
+    const messageTypeSelect = document.getElementById("admin-global-message-type");
+    const message = String(messageInput?.value || "").trim();
+    const type = normalizeGlobalMessageType(messageTypeSelect?.value || "info");
+    if (!message) {
+        setAdminAbuseStatus("admin-message-status", "Write a message before publishing.", { error: true });
+        return;
+    }
+    setAdminAbuseStatus("admin-message-status", "Publishing global message...");
+    try {
+        await setGlobalMessageConfig(message, type);
+        setAdminAbuseStatus("admin-message-status", `Published ${type} message: ${message.slice(0, 120)}`);
+        showNotification("Global message published.", "success", 3200);
+    } catch (error) {
+        setAdminAbuseStatus("admin-message-status", `Message publish failed: ${error.message || error}`, { error: true });
+    }
+}
+
+async function adminClearGlobalMessage() {
+    if (!isDeveloperSessionActive()) {
+        showNotification("Developer access required.", "error", 3000);
+        return;
+    }
+    setAdminAbuseStatus("admin-message-status", "Clearing global message...");
+    try {
+        await setGlobalMessageConfig("", "info");
+        const messageInput = document.getElementById("admin-global-message-input");
+        if (messageInput) messageInput.value = "";
+        setAdminAbuseStatus("admin-message-status", "Global message cleared.");
+        showNotification("Global message cleared.", "success", 3000);
+    } catch (error) {
+        setAdminAbuseStatus("admin-message-status", `Message clear failed: ${error.message || error}`, { error: true });
+    }
+}
+
+function openAdminAbuseMenu() {
+    openAdminAbuseModal();
+    return "Opened the Admin Abuse panel.";
+}
+
 async function startGlobalDoubleXpEvent(hours = 72) {
     if (!firebase.auth().currentUser || !isDeveloperUid(firebase.auth().currentUser.uid)) {
         console.log("❌ Access denied. This command is for developers only.");
-        return;
+        return null;
     }
     if (!currentUser) {
         console.log("❌ Error: User must be logged in");
-        return;
+        return null;
     }
 
     const durationHours = Number(hours);
     if (!Number.isFinite(durationHours) || durationHours <= 0) {
         console.log("❌ Usage: startGlobalDoubleXpEvent(72)");
-        return;
+        return null;
     }
 
     try {
@@ -5423,19 +6503,21 @@ async function startGlobalDoubleXpEvent(hours = 72) {
         ensureXpEventBannerTimer();
 
         console.log(`✅ Started global 2x XP event for ${durationHours} hour${durationHours === 1 ? "" : "s"}.`);
+        return eventConfig;
     } catch (error) {
         console.error("❌ Error starting global 2x XP event:", error);
+        return null;
     }
 }
 
 async function stopGlobalDoubleXpEvent() {
     if (!firebase.auth().currentUser || !isDeveloperUid(firebase.auth().currentUser.uid)) {
         console.log("❌ Access denied. This command is for developers only.");
-        return;
+        return null;
     }
     if (!currentUser) {
         console.log("❌ Error: User must be logged in");
-        return;
+        return null;
     }
 
     try {
@@ -5456,8 +6538,10 @@ async function stopGlobalDoubleXpEvent() {
         ensureXpEventBannerTimer();
 
         console.log("✅ Stopped the global 2x XP event.");
+        return update;
     } catch (error) {
         console.error("❌ Error stopping global 2x XP event:", error);
+        return null;
     }
 }
 
@@ -5740,9 +6824,95 @@ async function addCrates(amount = 1) {
     }
 }
 
+async function addStreakShields(amount = 1) {
+    if (!firebase.auth().currentUser || !isDeveloperUid(firebase.auth().currentUser.uid)) {
+        console.log("❌ Access denied. This command is for developers only.");
+        return;
+    }
+    if (!currentUser) {
+        console.log("❌ Error: User must be logged in");
+        return;
+    }
+
+    const count = Math.floor(Number(amount));
+    if (!Number.isFinite(count) || count <= 0) {
+        console.log("❌ Usage: addStreakShields(3)");
+        return;
+    }
+
+    try {
+        const profileData = getCurrentProfileData();
+        setStreakShieldCount(profileData, getStreakShieldCount(profileData) + count);
+        saveUserProfileLocally(profileData);
+        await db.collection("userStats").doc(currentUser.uid).set({
+            streakShields: getStreakShieldCount(profileData)
+        }, { merge: true });
+        renderCratesModal();
+        if (typeof renderConsumablesPage === "function") {
+            renderConsumablesPage();
+        }
+        console.log(`✅ Added ${count} Streak Shield${count === 1 ? "" : "s"}. Total: ${getStreakShieldCount(profileData)}`);
+    } catch (error) {
+        console.error("❌ Error adding streak shields:", error);
+    }
+}
+
+async function addXpPotions(amount = 1, itemId = XP_POTION_ITEM_ID) {
+    if (!firebase.auth().currentUser || !isDeveloperUid(firebase.auth().currentUser.uid)) {
+        console.log("❌ Access denied. This command is for developers only.");
+        return;
+    }
+    if (!currentUser) {
+        console.log("❌ Error: User must be logged in");
+        return;
+    }
+
+    const count = Math.floor(Number(amount));
+    if (!Number.isFinite(count) || count <= 0) {
+        console.log(`❌ Usage: addXpPotions(3, "${XP_POTION_ITEM_ID}")`);
+        return;
+    }
+
+    if (!XP_POTION_DEFINITION_MAP[itemId]) {
+        console.log(`❌ Unknown potion id: ${itemId}`);
+        console.log(`Available ids: ${XP_POTION_DEFINITIONS.map(def => def.itemId).join(", ")}`);
+        return;
+    }
+
+    try {
+        const potionDef = getXpPotionDefinition(itemId);
+        const profileData = getCurrentProfileData();
+        setXpPotionCount(
+            profileData,
+            getXpPotionCount(profileData, potionDef.itemId) + count,
+            potionDef.itemId
+        );
+        saveUserProfileLocally(profileData);
+        await db.collection("userStats").doc(currentUser.uid).set({
+            ...getXpPotionSyncPayload(profileData)
+        }, { merge: true });
+        renderCratesModal();
+        if (typeof renderConsumablesPage === "function") {
+            renderConsumablesPage();
+        }
+        console.log(
+            `✅ Added ${count} ${potionDef.name}${count === 1 ? "" : "s"}. ` +
+            `Total ${potionDef.shortLabel}: ${getXpPotionCount(profileData, potionDef.itemId)}`
+        );
+    } catch (error) {
+        console.error("❌ Error adding XP potions:", error);
+    }
+}
+
+async function addXpBoosters(amount = 1, itemId = XP_POTION_ITEM_ID) {
+    return addXpPotions(amount, itemId);
+}
+
 // Display current stats
 function showStats() {
     const userProfile = JSON.parse(localStorage.getItem("userProfile") || "{}");
+    const potionInventory = getXpPotionInventory(userProfile);
+    const potionSummary = potionInventory.map(potion => `${potion.name}: ${potion.count}`).join(" | ");
     console.log("=== CURRENT STATS ===");
     console.log(`XP: ${userProfile.totalXP || 0}`);
     console.log(`Wins: ${userProfile.wins || 0}`);
@@ -5751,6 +6921,17 @@ function showStats() {
     console.log(`Total Guesses: ${userProfile.totalGuesses || 0}`);
     console.log(`Current Streak: ${userProfile.currentStreak || 0}`);
     console.log(`Highest Streak: ${userProfile.highestStreak || 0}`);
+    console.log(`Streak Shields: ${Math.max(0, Number(userProfile.streakShields) || 0)}`);
+    console.log(`XP Boosters (Total): ${getTotalXpPotionCount(userProfile)}`);
+    console.log(`XP Boosters (By Type): ${potionSummary}`);
+    const activePotion = getActivePersonalXpBuff(userProfile);
+    console.log(
+        `Active XP Booster: ${
+            activePotion
+                ? `${activePotion.label} (${activePotion.multiplier}x) until ${new Date(activePotion.endMs).toLocaleTimeString()}`
+                : "None"
+        }`
+    );
     console.log(`Login Day: ${parseInt(localStorage.getItem("currentLoginDay")) || 1}`);
     console.log(`Login Streak: ${parseInt(localStorage.getItem("loginStreak")) || 1}`);
     console.log(`Level: ${getLevelFromXP(userProfile.totalXP || 0)}`);
@@ -5763,6 +6944,7 @@ function showCommands() {
     console.log("addStats({xp: 100, wins: 1, losses: 1, gamesPlayed: 1, totalGuesses: 5})");
     console.log("addXP(100) - Add XP");
     console.log("setLevel(10) - Set your level directly");
+    console.log("openAdminAbuseMenu() - Open the Admin Abuse panel");
     console.log("startGlobalDoubleXpEvent(72) - Start a global 2x XP event");
     console.log("stopGlobalDoubleXpEvent() - Stop the global 2x XP event");
     console.log("addWin() - Add 1 win");
@@ -5772,6 +6954,10 @@ function showCommands() {
     console.log("simulateNextLoginDay() - Simulate logging in the day after your last login");
     console.log("skipLoginDay(1) - Simulate missing 1 day and re-run daily login logic");
     console.log("addCrates(3) - Add Cosmetic Crates for testing");
+    console.log("addStreakShields(3) - Add Streak Shields for testing");
+    console.log(`addXpBoosters(3, "${XP_POTION_ITEM_ID}") - Add specific XP boosters by item id`);
+    console.log(`addXpPotions(3, "${XP_POTION_ITEM_ID}") - Add specific XP boosters by item id`);
+    console.log(`useXpBooster("${XP_POTION_ITEM_ID}") - Use a booster by item id`);
     console.log("addTestStats() - Quick test add (500 XP, 10 wins, 5 losses, 15 games, 75 guesses)");
     console.log("revealShark() - Reveal the currently open duel shark");
     console.log("revealShark('duel_id') - Reveal a specific duel shark by id");
