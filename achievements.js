@@ -66,6 +66,14 @@ const achievementDefinitions = {
             points: 180,
             type: 'special',
             hiddenUntilSecret: true
+        },
+        {
+            id: 'streak_shield_used',
+            name: 'Saviour',
+            description: 'Lose a game but have a streak shield protect your win streak',
+            icon: '🛡️',
+            points: 100,
+            type: 'special'
         }
     ],
     
