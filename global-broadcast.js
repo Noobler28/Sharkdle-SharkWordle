@@ -15,7 +15,7 @@
     const MESSAGE_CACHE_KEY = "globalBroadcastMessageCache";
     const THEME_CACHE_KEY = "globalUiThemeCache";
     const THEME_DISABLE_KEY = "disableSeasonalTheme";
-    const THEME_IDS = ["default", "summer", "christmas", "halloween"];
+    const THEME_IDS = ["default", "summer", "birthday", "christmas", "halloween"];
     const THEME_CLASS_PREFIX = "global-ui-theme-";
     const STYLE_ID = "global-broadcast-style";
     const BANNER_ID = "global-broadcast-banner";
@@ -106,6 +106,76 @@
                 --global-theme-navbar-bg: #0b3948;
                 --global-theme-surface-bg: linear-gradient(180deg, rgba(8, 52, 70, 0.95), rgba(11, 95, 118, 0.92));
                 --global-theme-surface-border: rgba(151, 245, 255, 0.3);
+            }
+            body.${THEME_CLASS_PREFIX}birthday {
+                --global-theme-body-bg:
+                    /* Soft party glow */
+                    radial-gradient(900px 420px at 50% -10%, rgba(255, 120, 203, 0.18) 0%, rgba(255, 120, 203, 0) 62%),
+                    radial-gradient(820px 360px at 15% 12%, rgba(120, 210, 255, 0.16) 0%, rgba(120, 210, 255, 0) 60%),
+                    radial-gradient(760px 340px at 85% 18%, rgba(255, 221, 120, 0.14) 0%, rgba(255, 221, 120, 0) 60%),
+                    linear-gradient(135deg, #071a3a, #163c7a, #2b77b8);
+                --global-theme-navbar-bg: #0b1f45;
+                --global-theme-surface-bg: linear-gradient(180deg, rgba(18, 33, 80, 0.95), rgba(29, 112, 171, 0.92));
+                --global-theme-surface-border: rgba(255, 186, 247, 0.26);
+            }
+            /* Birthday extras: visible confetti overlay + anniversary badge */
+            body.${THEME_CLASS_PREFIX}birthday {
+                position: relative;
+            }
+            body.${THEME_CLASS_PREFIX}birthday::before {
+                content: "";
+                position: fixed;
+                inset: 0;
+                pointer-events: none;
+                z-index: 0;
+                opacity: 0.55;
+                mix-blend-mode: screen;
+                background:
+                    radial-gradient(circle at 18px 22px, rgba(255, 120, 203, 0.95) 0 3px, transparent 3.4px),
+                    radial-gradient(circle at 52px 74px, rgba(120, 210, 255, 0.95) 0 3px, transparent 3.4px),
+                    radial-gradient(circle at 108px 26px, rgba(255, 221, 120, 0.95) 0 3px, transparent 3.4px),
+                    radial-gradient(circle at 76px 118px, rgba(160, 255, 198, 0.9) 0 3px, transparent 3.4px),
+                    radial-gradient(circle at 138px 92px, rgba(205, 164, 255, 0.9) 0 3px, transparent 3.4px),
+                    radial-gradient(circle at 158px 40px, rgba(255, 165, 120, 0.9) 0 3px, transparent 3.4px);
+                background-size: 220px 220px, 260px 260px, 320px 320px, 240px 240px, 360px 360px, 300px 300px;
+                animation: birthday-confetti-drift 16s linear infinite;
+            }
+            body.${THEME_CLASS_PREFIX}birthday > * {
+                position: relative;
+                z-index: 1;
+            }
+            body.${THEME_CLASS_PREFIX}birthday .logo {
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                background: linear-gradient(135deg, #ff78cb, #ffe085, #78d2ff);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+            body.${THEME_CLASS_PREFIX}birthday .logo::after {
+                content: "1 Year Anniversary";
+                display: inline-block;
+                padding: 6px 10px;
+                border-radius: 999px;
+                font-size: 11px;
+                font-weight: 800;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                background: rgba(255, 255, 255, 0.10);
+                border: 1px solid rgba(255, 186, 247, 0.34);
+                color: #ffe085;
+                box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+                -webkit-text-fill-color: initial;
+            }
+            @keyframes birthday-confetti-drift {
+                from { background-position: 0 0, 40px 10px, 120px 0, 10px 70px, 80px 40px, 150px 20px; }
+                to   { background-position: 0 520px, 40px 640px, 120px 610px, 10px 760px, 80px 700px, 150px 740px; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                body.${THEME_CLASS_PREFIX}birthday::before {
+                    animation: none;
+                }
             }
             body.${THEME_CLASS_PREFIX}christmas {
                 --global-theme-body-bg: linear-gradient(135deg, #06241f, #133a2d, #6f1515);
