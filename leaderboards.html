@@ -894,7 +894,7 @@ h1{
                 </div>
             </div>
         </div>
-        <h1>🏆 Sharkdle Global Leaderboards</h1>
+        <h1>🦈 Sharkdle Global Leaderboards</h1>
         <div id="leaderboard-loading" class="loading">Loading leaderboard...</div>
         <div class="leaderboard-table-shell">
         <table class="leaderboard-table" id="leaderboard-table" style="display:none;">
@@ -915,7 +915,7 @@ h1{
         </table>
         </div>
         <button class="back-btn" onclick="window.location.href='index.html'">
-            ← Back to Main Menu
+            ? Back to Main Menu
         </button>
     </div>
 
@@ -1012,6 +1012,15 @@ h1{
             return `${year}-${month}-${day}`;
         }
 
+        function getUtcDateKey(dateValue = new Date()) {
+            const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+            if (Number.isNaN(date.getTime())) return "";
+            const year = date.getUTCFullYear();
+            const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+            const day = String(date.getUTCDate()).padStart(2, "0");
+            return `${year}-${month}-${day}`;
+        }
+
         function parseDateLikeValue(rawValue) {
             if (rawValue === null || rawValue === undefined || rawValue === "") return null;
             if (rawValue instanceof Date) return Number.isNaN(rawValue.getTime()) ? null : rawValue;
@@ -1052,6 +1061,21 @@ h1{
             return parsedDate ? getLocalDateKey(parsedDate) : "";
         }
 
+        function normalizeStoredUtcDateValue(rawValue) {
+            if (typeof rawValue === "string") {
+                const value = rawValue.trim();
+                if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                    return value;
+                }
+            }
+            const parsedDate = parseDateLikeValue(rawValue);
+            if (!parsedDate) return "";
+            const year = parsedDate.getUTCFullYear();
+            const month = String(parsedDate.getUTCMonth() + 1).padStart(2, "0");
+            const day = String(parsedDate.getUTCDate()).padStart(2, "0");
+            return `${year}-${month}-${day}`;
+        }
+
         function normalizeStoredMonthValue(rawValue) {
             if (typeof rawValue === "string" && /^\d{4}-\d{2}$/.test(rawValue.trim())) {
                 return rawValue.trim();
@@ -1060,8 +1084,18 @@ h1{
             return normalizedDate ? normalizedDate.slice(0, 7) : "";
         }
 
+        function normalizeStoredUtcMonthValue(rawValue) {
+            if (typeof rawValue === "string") {
+                const value = rawValue.trim();
+                if (/^\d{4}-\d{2}$/.test(value)) return value;
+                if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value.slice(0, 7);
+            }
+            const normalizedDate = normalizeStoredUtcDateValue(rawValue);
+            return normalizedDate ? normalizedDate.slice(0, 7) : "";
+        }
+
         function getCurrentMonthKey() {
-            const today = getLocalDateKey();
+            const today = getUtcDateKey();
             return today ? today.slice(0, 7) : "";
         }
 
@@ -1096,28 +1130,18 @@ h1{
         function getLeaderboardMetricValue(data, rangeKey) {
             const config = getRangeConfig(rangeKey);
             const metricValue = Number(data?.[config.metricField]) || 0;
-            const totalWins = Number(data?.wins) || 0;
-            const winPeriodVersion = Number(data?.winPeriodVersion) || 0;
             if (config.id === "daily") {
-                const todayKey = getLocalDateKey();
-                const dailyDate = normalizeStoredDateValue(data?.dailyWinsDate);
+                const todayKey = getUtcDateKey();
+                const dailyDate = normalizeStoredUtcDateValue(data?.dailyWinsUtcDate || data?.dailyWinsDate);
                 if (dailyDate !== todayKey) return 0;
                 if (metricValue <= 0) return 0;
-                if (winPeriodVersion < 2) {
-                    if (totalWins > 0 && metricValue > totalWins) return 0;
-                    if (totalWins >= 25 && metricValue === totalWins) return 0;
-                }
                 return metricValue;
             }
             if (config.id === "monthly") {
                 const monthKey = getCurrentMonthKey();
-                const monthlyKey = normalizeStoredMonthValue(data?.monthlyWinsKey);
+                const monthlyKey = normalizeStoredUtcMonthValue(data?.monthlyWinsUtcKey || data?.monthlyWinsKey);
                 if (monthlyKey !== monthKey) return 0;
                 if (metricValue <= 0) return 0;
-                if (winPeriodVersion < 2) {
-                    if (totalWins > 0 && metricValue > totalWins) return 0;
-                    if (totalWins >= 40 && metricValue === totalWins) return 0;
-                }
                 return metricValue;
             }
             return metricValue;
@@ -1160,6 +1184,49 @@ h1{
             document.getElementById('leaderboard-popup').style.display = 'none';
         }
 
+        async function getLeaderboardCandidateRows(rangeConfig) {
+            const candidates = [];
+            const baseCollection = db.collection("userStats");
+            const queryLimit = rangeConfig.id === "all_time" ? LEADERBOARD_LIMIT : LEADERBOARD_QUERY_LIMIT;
+            let lastDoc = null;
+            let pageCount = 0;
+            const maxPages = rangeConfig.id === "all_time" ? 1 : 8;
+
+            while (pageCount < maxPages && candidates.length < LEADERBOARD_LIMIT) {
+                let query = baseCollection
+                    .orderBy(rangeConfig.orderField, "desc")
+                    .limit(queryLimit);
+                if (lastDoc) {
+                    query = query.startAfter(lastDoc);
+                }
+
+                const snapshot = await query.get();
+                if (snapshot.empty) break;
+                pageCount++;
+                lastDoc = snapshot.docs[snapshot.docs.length - 1];
+
+                for (const doc of snapshot.docs) {
+                    if (candidates.length >= LEADERBOARD_LIMIT) break;
+                    const data = doc.data();
+                    const totalWins = Number(data?.wins) || 0;
+                    if (totalWins <= 0) continue;
+
+                    const metricValue = getLeaderboardMetricValue(data, rangeConfig.id);
+                    if (rangeConfig.id !== "all_time" && metricValue <= 0) continue;
+
+                    candidates.push({
+                        doc,
+                        data,
+                        metricValue
+                    });
+                }
+
+                if (snapshot.size < queryLimit) break;
+            }
+
+            return candidates;
+        }
+
         async function loadLeaderboard(rangeKey = selectedLeaderboardRange) {
             selectedLeaderboardRange = rangeKey;
             updateLeaderboardRangeUI(selectedLeaderboardRange);
@@ -1172,26 +1239,22 @@ h1{
             table.style.display = 'none';
             tbody.innerHTML = '';
             try {
-                const queryLimit = rangeConfig.id === "all_time" ? LEADERBOARD_LIMIT : LEADERBOARD_QUERY_LIMIT;
-                const snapshot = await db.collection('userStats')
-                    .orderBy(rangeConfig.orderField, 'desc')
-                    .limit(queryLimit)
-                    .get();
-                if (snapshot.empty) {
+                const candidateRows = await getLeaderboardCandidateRows(rangeConfig);
+                if (!candidateRows.length) {
                     loadingDiv.textContent = rangeConfig.emptyState;
                     return;
                 }
                 
                 let rank = 1;
                 let top3Users = [];
-                // Badge system config (must match script.js)
+// Badge system config
                 const allBadges = [
                     { id: "starter", name: "Starter", emoji: "🦈", description: "Default badge for all players." },
-                    { id: "dev", name: "Developer", emoji: "🖥️", description: "Awarded only to the developer.", devOnly: true },
+                    { id: "dev", name: "Developer", emoji: "💻", description: "Awarded only to the developer.", devOnly: true },
                     { id: "tester", name: "Tester", emoji: "🎮", description: "Awarded for testing via code redeem.", codeUnlock: true }
                 ];
-                const currentPassBadgeDefs = [
-                    { id: "reef-scout", name: "Shiver", emoji: "🦈", description: "A Shark Pass badge for reaching level 3.", passLevel: 3 },
+const currentPassBadgeDefs = [
+                    { id: "reef-scout", name: "Shiver", emoji: "🐟", description: "A Shark Pass badge for reaching level 3.", passLevel: 3 },
                     { id: "bronze-fin", name: "Pup", emoji: "🪸", description: "A Shark Pass badge for reaching level 5.", passLevel: 5 },
                     { id: "night-diver", name: "Juvenile", emoji: "🌙", description: "A Shark Pass badge for reaching level 8.", passLevel: 8 },
                     { id: "abyss-explorer", name: "Oceanic", emoji: "💙", description: "A Shark Pass badge for reaching level 10.", passLevel: 10 },
@@ -1205,23 +1268,14 @@ h1{
                     }
                 }
                 allBadges.push(...currentPassBadgeDefs);
-                allBadges.push(
+allBadges.push(
                     { id: "reef-glint", name: "Driftwood", emoji: "🪵", description: "A badge found in Cosmetic Crates." },
                     { id: "kelp-warden", name: "Smelly Boot", emoji: "🥾", description: "A badge found in Cosmetic Crates." },
                     { id: "trench-myth", name: "Message Bottle", emoji: "🍾", description: "A badge found in Cosmetic Crates." },
                     { id: "aurora-fin", name: "Doubloon", emoji: "🪙", description: "A badge found in Cosmetic Crates." }
                 );
-                snapshot.forEach(doc => {
+                candidateRows.forEach(({ doc, data, metricValue }) => {
                     if (rank > LEADERBOARD_LIMIT) return;
-                    const data = doc.data();
-                    const totalWins = Number(data?.wins) || 0;
-                    if (totalWins <= 0) {
-                        return;
-                    }
-                    const metricValue = getLeaderboardMetricValue(data, selectedLeaderboardRange);
-                    if (selectedLeaderboardRange !== "all_time" && metricValue <= 0) {
-                        return;
-                    }
                     const tr = document.createElement('tr');
                     tr.classList.add(`lb-theme-${data.equippedCardTheme || 'default'}`);
                     // Check if this is the current user - use multiple methods including cached profile
@@ -1289,9 +1343,9 @@ h1{
                     let pfpObtainment = pfpObtainmentMap[profilePicPath] || 'Default Profile Icon';
                     const profilePicImg = `<img src="${profilePicPath}" alt="Profile" title="${pfpObtainment}" style="width:38px;height:38px;border-radius:50%;border:2px solid ${borderColor};background:#18304a;object-fit:cover;box-shadow:0 1px 4px rgba(30,41,59,0.12);">`;
                     const username = data.username ? data.username : 'Anonymous';
-                    let rankCell = '';
+let rankCell = '';
                     if (rank === 1) {
-                        rankCell = `<span style="color:#FFD700;">🏆</span>`;
+                        rankCell = `<span style="color:#FFD700;">🥇</span>`;
                     } else if (rank === 2) {
                         rankCell = `<span style="color:#C0C0C0;">🥈</span>`;
                     } else if (rank === 3) {
@@ -1300,7 +1354,7 @@ h1{
                         rankCell = rank;
                     }
                     if (rank === 1) {
-                        rankCell = `<span class="rank-pill rank-top-1">🏆</span>`;
+                        rankCell = `<span class="rank-pill rank-top-1">🥇</span>`;
                     } else if (rank === 2) {
                         rankCell = `<span class="rank-pill rank-top-2">🥈</span>`;
                     } else if (rank === 3) {
@@ -1475,9 +1529,9 @@ h1{
                             border: 2px solid #FFD700;
                             transition: top 0.3s ease;
                         `;
-                        notification.innerHTML = `
+notification.innerHTML = `
                             <div style=\"display: flex; align-items: center; gap: 14px;\">
-                                <div style=\"font-size: 2.2em;\">👑</div>
+                                <div style=\"font-size: 2.2em;\">🏆</div>
                                 <div>
                                     <div style=\"font-weight: 800; font-size: 1.15em; color: #FFD700;\">Leaderboard Reward Unlocked!</div>
                                     <div style=\"font-size: 1em; color: #222; font-weight: 700;\">Port Jackson Shark</div>
@@ -1503,7 +1557,9 @@ h1{
             }
         }
     </script>
+<script src="global-broadcast.js"></script>
 </body>
 </html>
+
 
 
