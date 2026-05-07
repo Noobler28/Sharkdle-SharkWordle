@@ -1287,6 +1287,7 @@ const SEASONAL_THEME_DISABLED_KEY = "disableSeasonalTheme";
 const INDEX_THEME_OPTIONS = [
     { id: "default", name: "Default Ocean" },
     { id: "summer", name: "Summer Splash" },
+    { id: "birthday", name: "Birthday Bash" },
     { id: "christmas", name: "Christmas Reef" },
     { id: "halloween", name: "Halloween Depths" }
 ];
