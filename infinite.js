@@ -91,19 +91,28 @@ function updateStats(isWin, guessesTaken = 0) {
         profileData.totalGuesses = (profileData.totalGuesses || 0) + guessesTaken;
         profileData.currentStreak = (profileData.currentStreak || 0) + 1;
         profileData.highestStreak = Math.max(profileData.highestStreak || 0, profileData.currentStreak);
+        if (typeof incrementProfilePeriodWins === 'function') {
+            incrementProfilePeriodWins(profileData);
+        }
         // Update best game (fewest guesses)
         if (!profileData.bestGame || profileData.bestGame === 'N/A' || guessesTaken < parseInt(profileData.bestGame)) {
             profileData.bestGame = guessesTaken;
         }
     } else {
         profileData.losses = (profileData.losses || 0) + 1;
-        profileData.currentStreak = 0;
+        const streakShieldUsed = typeof window.applyStreakShieldOnLoss === 'function'
+            ? window.applyStreakShieldOnLoss(profileData, { mode: "Infinite" })
+            : false;
+        if (!streakShieldUsed) {
+            profileData.currentStreak = 0;
+        }
     }
 
     // Calculate and save average guesses
     if (profileData.gamesPlayed > 0) {
         profileData.averageGuesses = (profileData.totalGuesses / profileData.gamesPlayed).toFixed(2);
     }
+    profileData.lastUpdated = Date.now();
 
     // Save to localStorage
     if (typeof saveUserProfileLocally === 'function') {
