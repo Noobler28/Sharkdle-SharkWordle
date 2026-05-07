@@ -1283,6 +1283,7 @@ const GLOBAL_MESSAGE_CONFIG_PATH = {
     collection: "globalConfig",
     doc: "globalMessage"
 };
+const SEASONAL_THEME_DISABLED_KEY = "disableSeasonalTheme";
 const INDEX_THEME_OPTIONS = [
     { id: "default", name: "Default Ocean" },
     { id: "summer", name: "Summer Splash" },
@@ -2035,21 +2036,57 @@ function normalizeIndexThemeId(themeId = "default") {
     return getValidIndexThemeIds().includes(normalized) ? normalized : "default";
 }
 
+function isSeasonalThemeDisabled() {
+    return localStorage.getItem(SEASONAL_THEME_DISABLED_KEY) === "true";
+}
+
+function updateSeasonalThemeToggleUI() {
+    const button = document.getElementById("seasonal-theme-toggle-btn");
+    const status = document.getElementById("seasonal-theme-status");
+    if (!button) return;
+
+    const disabled = isSeasonalThemeDisabled();
+    button.textContent = disabled ? "Enable Seasonal Theme" : "Use Default Theme";
+    if (status) {
+        status.textContent = disabled
+            ? "Seasonal themes are disabled on this device."
+            : "Seasonal themes are enabled.";
+    }
+}
+
+window.toggleSeasonalThemeOverride = function toggleSeasonalThemeOverride() {
+    const nextDisabled = !isSeasonalThemeDisabled();
+    if (nextDisabled) {
+        localStorage.setItem(SEASONAL_THEME_DISABLED_KEY, "true");
+        showNotification("Seasonal theme disabled (this device only).", "success", 2500);
+    } else {
+        localStorage.removeItem(SEASONAL_THEME_DISABLED_KEY);
+        showNotification("Seasonal theme enabled.", "success", 2000);
+    }
+
+    // Re-apply the current (remote/cached) theme immediately on the home page.
+    applyIndexTheme(localStorage.getItem("globalIndexThemeId") || "default");
+    updateSeasonalThemeToggleUI();
+};
+
 function applyIndexTheme(themeId = "default") {
     const body = document.body;
     if (!body) return "default";
 
     const resolvedThemeId = normalizeIndexThemeId(themeId);
+    const appliedThemeId = (isSeasonalThemeDisabled() && resolvedThemeId !== "default")
+        ? "default"
+        : resolvedThemeId;
     getValidIndexThemeIds().forEach(id => {
         body.classList.remove(`index-theme-${id}`);
         body.classList.remove(`global-ui-theme-${id}`);
     });
-    body.classList.add(`index-theme-${resolvedThemeId}`);
-    body.classList.add(`global-ui-theme-${resolvedThemeId}`);
+    body.classList.add(`index-theme-${appliedThemeId}`);
+    body.classList.add(`global-ui-theme-${appliedThemeId}`);
     localStorage.setItem("globalIndexThemeId", resolvedThemeId);
     localStorage.setItem("globalUiThemeCache", resolvedThemeId);
 
-    return resolvedThemeId;
+    return appliedThemeId;
 }
 
 function setupGlobalIndexThemeListener() {
@@ -4686,6 +4723,7 @@ async function openProfileModal() {
         }
         updateProfileBadgeUI();
         renderThemeSelection();
+        updateSeasonalThemeToggleUI();
         ensureAdminAbuseVisibility();
         await ensureFriendDocument(currentUser.uid).catch(err => console.error("Friend network init failed:", err));
         profileModal.classList.remove("hidden");
