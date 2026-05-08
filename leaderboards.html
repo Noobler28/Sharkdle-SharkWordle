@@ -1248,11 +1248,12 @@ h1{
                 let rank = 1;
                 let top3Users = [];
 // Badge system config
-                const allBadges = [
-                    { id: "starter", name: "Starter", emoji: "🦈", description: "Default badge for all players." },
-                    { id: "dev", name: "Developer", emoji: "💻", description: "Awarded only to the developer.", devOnly: true },
-                    { id: "tester", name: "Tester", emoji: "🎮", description: "Awarded for testing via code redeem.", codeUnlock: true }
-                ];
+                 const allBadges = [
+                     { id: "starter", name: "Starter", emoji: "🦈", description: "Default badge for all players." },
+                     { id: "dev", name: "Developer", emoji: "💻", description: "Awarded only to the developer.", devOnly: true },
+                     { id: "tester", name: "Tester", emoji: "🎮", description: "Awarded for testing via code redeem.", codeUnlock: true },
+                     { id: "anniversary", name: "Anniversary", emoji: "🎉", description: "Celebrating the anniversary of Sharkdle!" }
+                 ];
 const currentPassBadgeDefs = [
                     { id: "reef-scout", name: "Shiver", emoji: "🐟", description: "A Shark Pass badge for reaching level 3.", passLevel: 3 },
                     { id: "bronze-fin", name: "Pup", emoji: "🪸", description: "A Shark Pass badge for reaching level 5.", passLevel: 5 },
@@ -1323,6 +1324,7 @@ allBadges.push(
                         'images/codePfp/Shark17.png': 'Redeem Code Reward',
                         'images/codePfp/Shark18.png': 'Redeem Code Reward',
                         'images/codePfp/Shark19.png': 'Redeem Code Reward',
+                        'images/codePfp/Shark26.png': '1 Year Anniversary Event Reward',
                         'images/loginPfp/Shark20.png': 'Day 7 Login Streak Reward',
                         'images/cratePfp/Shark22.png': 'Cosmetic Crate Reward',
                         'images/cratePfp/Shark23.png': 'Cosmetic Crate Reward',
@@ -1417,6 +1419,11 @@ let rankCell = '';
                         badgeBorder = '#ffd47f';
                         badgeBg = 'rgba(255,196,87,0.18)';
                         badgeText = '#ffe3ad';
+                    } else if (badge.id === 'anniversary') {
+                        badgeRarity = 'Special';
+                        badgeBorder = '#ff6b35';
+                        badgeBg = 'rgba(255,107,53,0.15)';
+                        badgeText = '#ff6b35';
                     } else if (badge.id === 'reef-glint') {
                         badgeRarity = 'Common';
                         badgeBorder = '#00b4d8';
