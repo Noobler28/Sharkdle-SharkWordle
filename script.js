@@ -2816,7 +2816,8 @@ function renderThemeSelection() {
 const allBadges = [
     { id: "starter", name: "Starter", emoji: "🦈", description: "Default badge for all players." },
     { id: "dev", name: "Developer", emoji: "🖥️", description: "Awarded only to the developer.", devOnly: true },
-    { id: "tester", name: "Tester", emoji: "🎮", description: "Awarded for testing via code redeem.", codeUnlock: true }
+    { id: "tester", name: "Tester", emoji: "🎮", description: "Awarded for testing via code redeem.", codeUnlock: true },
+    { id: "anniversary", name: "Anniversary", emoji: "🎉", description: "Awarded for redeeming the Anniversary code.", codeUnlock: true }
 ];
 
 const currentPassBadgeDefs = [
@@ -2852,6 +2853,12 @@ function getUnlockedBadges(uid) {
     try {
         if (profileData.testerBadgeUnlocked || hasRedeemedCode('TESTER')) {
             if (!badges.some(b => b.id === 'tester')) badges.push(allBadges.find(b => b.id === 'tester'));
+        }
+    } catch {}
+    // Unlock anniversary badge if code redeemed
+    try {
+        if (hasRedeemedCode('ANNIVERSARY2026')) {
+            if (!badges.some(b => b.id === 'anniversary')) badges.push(allBadges.find(b => b.id === 'anniversary'));
         }
     } catch {}
     allBadges
@@ -3174,6 +3181,7 @@ const redeemCodes = {
     'SHARKDLE': { xp: 2500, cosmetics: [{ imagePath: 'images/codePfp/Shark17.png', name: 'Wobbegong Shark' }], description: '2.5k XP + Wobbegong Shark Profile Icon' },
     'UPDATE1': { xp: 1000, cosmetics: [{ imagePath: 'images/codePfp/Shark18.png', name: 'Greenland Shark' }], description: '1k XP + Greenland Shark Profile Icon' },
     'UPDATE2': { xp: 1500, cosmetics: [{ imagePath: 'images/codePfp/Shark19.png', name: 'Goblin Shark' }], description: '1.5k XP + Goblin Shark Profile Icon' },
+    'ANNIVERSARY2026': { xp: 2000, cosmetics: [{ imagePath: 'images/codePfp/Shark26.png', name: 'Hammerhead Shark' }], badge: 'anniversary', description: '2k XP + Hammerhead Shark Profile Icon + 🎉 badge' },
     'TESTER': { badge: 'tester', description: 'Unlocks the Tester badge (🎮)' }
 };
 
@@ -5043,6 +5051,19 @@ function loadAvailablePFPs() {
         });
     }
 
+    if (earnedCosmetics.some(c => c.imagePath === "images/codePfp/Shark26.png" || c.name === "Hammerhead Shark")) {
+        appendAvailablePfpCard({
+            imagePath: "images/codePfp/Shark26.png",
+            name: "Hammerhead Shark",
+            title: "Anniversary code reward",
+            accentBorder: "#ff6b6b",
+            accentBackground: "rgba(255, 107, 107, 0.1)",
+            accentText: "#ff6b6b",
+            hoverBackground: "rgba(255, 107, 107, 0.15)",
+            prefix: "🎉 "
+        });
+    }
+
     // Add special unlocked profile pictures that should appear in the available PFP list
     if (earnedCosmetics.some(c => c.name === "Port Jackson Shark")) {
         const div = document.createElement("div");
@@ -5921,9 +5942,10 @@ async function redeemCode() {
         const codeReward = redeemCodes[code];
 
         // Add XP
+        const rewardXp = Number(codeReward.xp) || 0;
         const xpAward = typeof window.applyLimitedTimeXpBonus === "function"
-            ? window.applyLimitedTimeXpBonus(codeReward.xp)
-            : { totalXp: codeReward.xp };
+            ? window.applyLimitedTimeXpBonus(rewardXp)
+            : { totalXp: rewardXp };
         const newXP = currentXP + xpAward.totalXp;
         userProfile.totalXP = newXP;
 
@@ -5942,6 +5964,20 @@ async function redeemCode() {
             });
         }
 
+        // Add badge if any
+        if (codeReward.badge) {
+            if (!Array.isArray(userProfile.unlockedBadges)) {
+                userProfile.unlockedBadges = ["starter"];
+            }
+            if (!userProfile.unlockedBadges.includes(codeReward.badge)) {
+                userProfile.unlockedBadges.push(codeReward.badge);
+            }
+            // Backwards compatible: keep the legacy tester flag for the tester badge.
+            if (codeReward.badge === "tester") {
+                userProfile.testerBadgeUnlocked = true;
+            }
+        }
+
         // Save to localStorage
         saveUserProfileLocally(userProfile);
 
@@ -5950,19 +5986,21 @@ async function redeemCode() {
             const statsRef = db.collection("userStats").doc(currentUser.uid);
             await statsRef.set({
                 totalXP: newXP,
-                earnedCosmetics: userProfile.earnedCosmetics
+                earnedCosmetics: userProfile.earnedCosmetics,
+                unlockedBadges: Array.isArray(userProfile.unlockedBadges) ? userProfile.unlockedBadges : ["starter"],
+                testerBadgeUnlocked: userProfile.testerBadgeUnlocked === true
             }, { merge: true });
         }
 
         // Mark code as redeemed
         addRedeemedCode(code);
 
-        // Sync redeemed codes and tester badge to Firebase BEFORE refreshing UI
+        // Sync redeemed codes BEFORE refreshing UI
         if (currentUser) {
             const redeemedCodesList = getRedeemedCodes();
             const statsRef = db.collection("userStats").doc(currentUser.uid);
             const syncData = { redeemedCodes: redeemedCodesList };
-            if (code === 'TESTER' && userProfile.testerBadgeUnlocked) {
+            if (codeReward.badge === 'tester' && userProfile.testerBadgeUnlocked) {
                 syncData.testerBadgeUnlocked = true;
             }
             // Wait for Firebase sync to complete before refreshing UI
@@ -5970,7 +6008,12 @@ async function redeemCode() {
         }
 
         // Show success message
-        showRedeemMessage(`✨ Success! You received ${xpAward.totalXp} XP!`, true);
+        const rewardLines = [];
+        if (xpAward.totalXp > 0) rewardLines.push(`${xpAward.totalXp} XP`);
+        if (newlyUnlockedCosmetics.length) rewardLines.push(`${newlyUnlockedCosmetics.length} cosmetic${newlyUnlockedCosmetics.length === 1 ? "" : "s"}`);
+        if (codeReward.badge) rewardLines.push(`badge unlocked`);
+        const rewardSummary = rewardLines.length ? rewardLines.join(" + ") : "Rewards unlocked";
+        showRedeemMessage(`✨ Success! ${rewardSummary}.`, true);
         codeInput.value = '';
 
         // Refresh profile and cosmetics
@@ -6782,7 +6825,9 @@ async function forceRedeemCode(code) {
 
         // Add badge if any
         if (codeReward.badge) {
-            userProfile.testerBadgeUnlocked = true;
+            if (codeReward.badge === "tester") {
+                userProfile.testerBadgeUnlocked = true;
+            }
             if (!Array.isArray(userProfile.unlockedBadges)) {
                 userProfile.unlockedBadges = ["starter"];
             }
