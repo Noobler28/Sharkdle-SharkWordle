@@ -118,6 +118,81 @@
                 --global-theme-surface-bg: linear-gradient(180deg, rgba(18, 33, 80, 0.95), rgba(29, 112, 171, 0.92));
                 --global-theme-surface-border: rgba(255, 186, 247, 0.26);
             }
+            /* Summer Splash: logo gradient + badge */
+            body.${THEME_CLASS_PREFIX}summer .logo {
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                background: linear-gradient(135deg, #ffe066, #ff9a3c, #ff6b6b);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+            body.${THEME_CLASS_PREFIX}summer .logo::after {
+                content: "Summer";
+                display: inline-block;
+                padding: 6px 10px;
+                border-radius: 999px;
+                font-size: 11px;
+                font-weight: 800;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                background: rgba(255, 255, 255, 0.10);
+                border: 1px solid rgba(255, 224, 102, 0.34);
+                color: #ffe066;
+                box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+                -webkit-text-fill-color: #ffe066;
+            }
+            /* Christmas Reef: logo gradient + badge */
+            body.${THEME_CLASS_PREFIX}christmas .logo {
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                background: linear-gradient(135deg, #ff6b6b, #c44eff, #4dabf7);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+            body.${THEME_CLASS_PREFIX}christmas .logo::after {
+                content: "Christmas";
+                display: inline-block;
+                padding: 6px 10px;
+                border-radius: 999px;
+                font-size: 11px;
+                font-weight: 800;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                background: rgba(255, 255, 255, 0.10);
+                border: 1px solid rgba(255, 107, 107, 0.34);
+                color: #ff6b6b;
+                box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+                -webkit-text-fill-color: #ff6b6b;
+            }
+            /* Halloween Depths: logo gradient + badge */
+            body.${THEME_CLASS_PREFIX}halloween .logo {
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                background: linear-gradient(135deg, #c44eff, #ff6b6b, #ffe066);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+            body.${THEME_CLASS_PREFIX}halloween .logo::after {
+                content: "Halloween";
+                display: inline-block;
+                padding: 6px 10px;
+                border-radius: 999px;
+                font-size: 11px;
+                font-weight: 800;
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                background: rgba(255, 255, 255, 0.10);
+                border: 1px solid rgba(196, 78, 255, 0.34);
+                color: #c44eff;
+                box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+                -webkit-text-fill-color: #c44eff;
+            }
             /* Birthday extras: visible confetti overlay + anniversary badge */
             body.${THEME_CLASS_PREFIX}birthday {
                 position: relative;
