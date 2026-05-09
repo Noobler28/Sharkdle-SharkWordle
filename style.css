@@ -2183,6 +2183,32 @@ body.home-page.index-theme-summer .game-card {
     border-color: rgba(134, 247, 255, 0.28);
 }
 
+body.home-page.index-theme-summer .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(135deg, #ffe066, #ff9a3c, #ff6b6b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.home-page.index-theme-summer .logo::after {
+    content: "Summer";
+    display: inline-block;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 224, 102, 0.34);
+    color: #ffe066;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+    -webkit-text-fill-color: #ffe066;
+}
+
 body.home-page.index-theme-birthday {
     /* Sharkdle Birthday: fun but still clean */
     background:
@@ -2232,6 +2258,32 @@ body.home-page.index-theme-christmas .game-card {
     border-color: rgba(255, 211, 144, 0.24);
 }
 
+body.home-page.index-theme-christmas .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(135deg, #ff6b6b, #c44eff, #4dabf7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.home-page.index-theme-christmas .logo::after {
+    content: "Christmas";
+    display: inline-block;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 107, 107, 0.34);
+    color: #ff6b6b;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+    -webkit-text-fill-color: #ff6b6b;
+}
+
 body.home-page.index-theme-halloween {
     background: linear-gradient(135deg, #160d2b, #2b153f, #5f2c0a);
 }
@@ -2246,6 +2298,32 @@ body.home-page.index-theme-halloween .home-hero {
 
 body.home-page.index-theme-halloween .game-card {
     border-color: rgba(255, 188, 136, 0.26);
+}
+
+body.home-page.index-theme-halloween .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(135deg, #c44eff, #ff6b6b, #ffe066);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+body.home-page.index-theme-halloween .logo::after {
+    content: "Halloween";
+    display: inline-block;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(196, 78, 255, 0.34);
+    color: #c44eff;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+    -webkit-text-fill-color: #c44eff;
 }
 
 .home-shell {
@@ -6971,4 +7049,25 @@ border:1px dashed #4dd0e1;
         width: calc(100% - 20px);
         height: calc(100% - 20px);
     }
+}
+
+.pairs-item {
+    transition: all 0.2s ease;
+    border: 2px dashed transparent;
+    background: rgba(11, 34, 51, 0.6);
+    border-radius: 12px;
+    padding: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.pairs-item.selected {
+    border: 2px dashed #ffd700 !important;
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+
+.pairs-item:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 16px rgba(0, 180, 216, 0.4);
 }
