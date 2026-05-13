@@ -443,7 +443,7 @@ const sharks = [
             { "name": "Yangs Longnose Catshark", "family": "Pentanchidae", "order": "Carcharhiniformes", "genus": "Apristurus", "size": "Small","habitat": "Bathypelagic", "yod": 2017 },
             // Pentanchidae | Carcharhiniformes | Asymbolus | 9 species
             { "name": "Australian Spotted Catshark", "family": "Pentanchidae", "order": "Carcharhiniformes", "genus": "Asymbolus", "size": "Small","habitat": "Mesopelagic", "yod": 1885 },
-            { "name": "Blotched Catshark", "family": "Pentanchidae", "order": "Carcharhiniformes", "genus": "Asymbolus", "size": "Small","habitat": "Mesopelagic", "yod": 1999 },
+            { "name": "Blotched Catshark (Asymbolus)", "family": "Pentanchidae", "order": "Carcharhiniformes", "genus": "Asymbolus", "size": "Small","habitat": "Mesopelagic", "yod": 1999 },
             { "name": "Starry Catshark", "family": "Pentanchidae", "order": "Carcharhiniformes", "genus": "Asymbolus", "size": "Small","habitat": "Mesopelagic", "yod": 2008 },
             { "name": "Western Spotted Catshark", "family": "Pentanchidae", "order": "Carcharhiniformes", "genus": "Asymbolus", "size": "Small","habitat": "Mesopelagic", "yod": 1999 },
             { "name": "Pale-spotted Catshark", "family": "Pentanchidae", "order": "Carcharhiniformes", "genus": "Asymbolus", "size": "Tiny","habitat": "Mesopelagic", "yod": 1999 },
@@ -581,7 +581,7 @@ const sharks = [
             { "name": "Brownspotted Catshark", "family": "Scyliorhinidae", "order": "Carcharhiniformes", "genus": "Scyliorhinus", "size": "Small","habitat": "Mesopelagic", "yod": 1934 },
             { "name": "Freckled Catshark", "family": "Scyliorhinidae", "order": "Carcharhiniformes", "genus": "Scyliorhinus", "size": "Small","habitat": "Mesopelagic", "yod": 1907 },
             { "name": "Whitesaddled Catshark", "family": "Scyliorhinidae", "order": "Carcharhiniformes", "genus": "Scyliorhinus", "size": "Small","habitat": "Bathypelagic", "yod": 1966 },
-            { "name": "Blotched Catshark", "family": "Scyliorhinidae", "order": "Carcharhiniformes", "genus": "Scyliorhinus", "size": "Small","habitat": "Bathypelagic", "yod": 1966 },
+            { "name": "Blotched Catshark (Scyliorhinus)", "family": "Scyliorhinidae", "order": "Carcharhiniformes", "genus": "Scyliorhinus", "size": "Small","habitat": "Bathypelagic", "yod": 1966 },
             { "name": "Chain Catshark", "family": "Scyliorhinidae", "order": "Carcharhiniformes", "genus": "Scyliorhinus", "size": "Small","habitat": "Bathypelagic", "yod": 1881 },
             { "name": "Nursehound", "family": "Scyliorhinidae", "order": "Carcharhiniformes", "genus": "Scyliorhinus", "size": "Small","habitat": "Mesopelagic", "yod": 1758 },
             { "name": "Izu Catshark", "family": "Scyliorhinidae", "order": "Carcharhiniformes", "genus": "Scyliorhinus", "size": "Small","habitat": "Bathypelagic", "yod": 1992 },
